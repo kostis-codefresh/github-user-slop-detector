@@ -1,0 +1,120 @@
+{
+  "data": {
+    "user": {
+      "login": "octocat",
+      "createdAt": "2017-04-18T10:00:00Z",
+      "bio": "I write software",
+      "company": "Acme",
+      "location": "Madrid",
+      "websiteUrl": "https://example.com",
+      "followers": { "totalCount": 26 },
+      "repositories": { "totalCount": 13 },
+      "pullRequests": {
+        "totalCount": 4,
+        "nodes": [
+          {
+            "state": "MERGED",
+            "merged": true,
+            "createdAt": "2025-06-01T00:00:00Z",
+            "mergedAt": "2025-06-02T00:00:00Z",
+            "additions": 100,
+            "deletions": 20,
+            "mergedBy": { "login": "maintainer-a" },
+            "repository": {
+              "owner": { "login": "org" },
+              "name": "project",
+              "stargazerCount": 5000
+            }
+          },
+          {
+            "state": "CLOSED",
+            "merged": false,
+            "createdAt": "2025-07-01T00:00:00Z",
+            "mergedAt": null,
+            "additions": 5,
+            "deletions": 1,
+            "mergedBy": null,
+            "repository": {
+              "owner": { "login": "org" },
+              "name": "project",
+              "stargazerCount": 5000
+            }
+          },
+          {
+            "state": "MERGED",
+            "merged": true,
+            "createdAt": "2025-08-01T00:00:00Z",
+            "mergedAt": "2025-08-02T00:00:00Z",
+            "additions": 10,
+            "deletions": 0,
+            "mergedBy": null,
+            "repository": null
+          },
+          {
+            "state": "OPEN",
+            "merged": false,
+            "createdAt": "2020-01-01T00:00:00Z",
+            "mergedAt": null,
+            "additions": 1,
+            "deletions": 1,
+            "mergedBy": null,
+            "repository": {
+              "owner": { "login": "org" },
+              "name": "ancient",
+              "stargazerCount": 10
+            }
+          }
+        ],
+        "pageInfo": { "hasNextPage": false, "endCursor": "" }
+      },
+      "contributionsCollection": {
+        "contributionCalendar": {
+          "weeks": [
+            {
+              "contributionDays": [
+                { "contributionCount": 3, "date": "2025-06-01" },
+                { "contributionCount": 0, "date": "2025-06-02" }
+              ]
+            },
+            {
+              "contributionDays": [
+                { "contributionCount": 1, "date": "2025-07-14" },
+                { "contributionCount": 0, "date": "2025-08-14" }
+              ]
+            }
+          ]
+        },
+        "pullRequestReviewContributions": { "totalCount": 4 }
+      },
+      "issueComments": {
+        "totalCount": 2,
+        "nodes": [
+          {
+            "createdAt": "2025-06-10T00:00:00Z",
+            "reactions": { "nodes": [{ "content": "THUMBS_UP" }, { "content": "HEART" }] }
+          },
+          {
+            "createdAt": "2025-06-11T00:00:00Z",
+            "reactions": { "nodes": [{ "content": "THUMBS_DOWN" }] }
+          }
+        ],
+        "pageInfo": { "hasNextPage": false, "endCursor": "" }
+      }
+    },
+    "issueSearch": {
+      "issueCount": 2,
+      "nodes": [
+        {
+          "__typename": "Issue",
+          "createdAt": "2025-05-01T00:00:00Z",
+          "comments": { "totalCount": 3 },
+          "reactions": { "nodes": [{ "content": "ROCKET" }] }
+        },
+        {
+          "__typename": "PullRequest"
+        }
+      ]
+    },
+    "rateLimit": { "remaining": 4900, "resetAt": "2026-01-01T00:00:00Z", "used": 100 }
+  }
+}
