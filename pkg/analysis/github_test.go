@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -99,6 +100,12 @@ func TestFetch(t *testing.T) {
 		assert.Equal(t, 3, c.Issues[0].Comments, "issue comment count mismatch")
 	})
 
+	t.Run("Records the rate limit budget", func(t *testing.T) {
+		assert.Equal(t, 4900, c.RateLimit.Remaining, "remaining points mismatch")
+		assert.Equal(t, 100, c.RateLimit.Used, "used points mismatch")
+		assert.Equal(t, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), c.RateLimit.ResetAt, "reset time mismatch")
+	})
+
 	t.Run("Sends the expected search query", func(t *testing.T) {
 		require.NotEmpty(t, *requests, "at least one request should have been made")
 		assert.Equal(t, "author:octocat is:issue created:>=2025-03-23", (*requests)[0]["issueSearchQuery"],
@@ -130,7 +137,7 @@ func TestFetchPaginates(t *testing.T) {
 				"pageInfo":{"hasNextPage":false,"endCursor":""}},
 				"contributionsCollection":{"contributionCalendar":{"weeks":[]},"pullRequestReviewContributions":{"totalCount":0}},
 				"issueComments":{"totalCount":0,"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}},
-				"issueSearch":{"issueCount":0,"nodes":[]},"rateLimit":{"remaining":100,"resetAt":"2026-01-01T00:00:00Z","used":1}}}`
+				"issueSearch":{"issueCount":0,"nodes":[]},"rateLimit":{"remaining":99,"resetAt":"2026-01-01T00:00:00Z","used":2}}}`
 		}
 		_, _ = io.WriteString(w, body)
 	}))
@@ -144,6 +151,83 @@ func TestFetchPaginates(t *testing.T) {
 
 	assert.Equal(t, 2, pages, "the second PR page should have been requested")
 	assert.Len(t, c.PullRequests, 2, "PRs from both pages should be kept")
+	assert.Equal(t, 99, c.RateLimit.Remaining, "the budget should come from the last page, not the first")
+}
+
+// TestFetchStopsOnRateLimit pins the no-retry contract: a rate-limited response
+// must fail the run on the first request rather than spend more of a budget that
+// is already gone. A case that took seconds would mean the retry loop still runs.
+func TestFetchStopsOnRateLimit(t *testing.T) {
+	reset := time.Now().Add(42 * time.Minute).UTC().Truncate(time.Second)
+
+	testCases := []struct {
+		name        string
+		status      int
+		headers     map[string]string
+		body        string
+		expectedErr string
+	}{
+		{
+			name:    "Primary limit as HTTP 429",
+			status:  http.StatusTooManyRequests,
+			headers: map[string]string{"Retry-After": "60"},
+			body:    `{"message":"API rate limit exceeded"}`,
+			// Retry-After is a delta, so only the "in ..." half is predictable here.
+			expectedErr: "GitHub API rate limit exceeded (not retrying)",
+		},
+		{
+			name:   "Primary limit as HTTP 403 with the count zeroed",
+			status: http.StatusForbidden,
+			headers: map[string]string{
+				"X-RateLimit-Remaining": "0",
+				"X-RateLimit-Reset":     strconv.FormatInt(reset.Unix(), 10),
+			},
+			body:        `{"message":"API rate limit exceeded for user ID 1."}`,
+			expectedErr: "0 points remaining, resets at " + reset.Format(time.RFC3339),
+		},
+		{
+			name:        "Secondary limit as HTTP 403 with no headers",
+			status:      http.StatusForbidden,
+			body:        `{"message":"You have exceeded a secondary rate limit"}`,
+			expectedErr: "You have exceeded a secondary rate limit",
+		},
+		{
+			name:        "RATE_LIMITED GraphQL error",
+			status:      http.StatusOK,
+			body:        `{"errors":[{"message":"API rate limit exceeded for user ID 1."}]}`,
+			expectedErr: "GitHub API rate limit exceeded (not retrying)",
+		},
+		{
+			name:        "A plain 403 is still a token rejection",
+			status:      http.StatusForbidden,
+			body:        `{"message":"Bad credentials"}`,
+			expectedErr: "GitHub rejected the token",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls int
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				calls++
+				for k, v := range tc.headers {
+					w.Header().Set(k, v)
+				}
+				w.WriteHeader(tc.status)
+				_, _ = io.WriteString(w, tc.body)
+			}))
+			defer server.Close()
+
+			client := NewClient("test-token")
+			client.Endpoint = server.URL
+
+			_, err := client.Fetch(context.Background(), "octocat", time.Now())
+
+			require.Error(t, err, "the rate limit should fail the run")
+			assert.Contains(t, err.Error(), tc.expectedErr, "error message mismatch")
+			assert.Equal(t, 1, calls, "the request must not be retried")
+		})
+	}
 }
 
 func TestFetchErrors(t *testing.T) {

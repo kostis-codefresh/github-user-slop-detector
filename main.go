@@ -136,6 +136,12 @@ func run() int {
 	}
 	prog.Done(path)
 
+	// A run costs up to 9 GraphQL requests and there is no other way to see what
+	// it left behind, so always close with the budget.
+	rl := contributor.RateLimit
+	log.Printf("GitHub API rate limit: %d points remaining (%d used), resets at %s",
+		rl.Remaining, rl.Used, rl.ResetAt.Format(time.RFC3339))
+
 	// Step 5 - exit non-zero when the required metrics did not pass
 	if !result.Passed {
 		return exitNeedsReview

@@ -34,8 +34,20 @@ type Contributor struct {
 	ActiveMonths map[string]bool
 	ReviewsGiven int
 
+	// RateLimit is the GraphQL budget as of the most recent response GitHub sent
+	// while assembling this struct.
+	RateLimit RateLimit
+
 	Since time.Time //start of the analysis window
 	Until time.Time //when the report was generated
+}
+
+// RateLimit is what the API's rateLimit field reported: how much of the hourly
+// GraphQL budget is left and when it refills.
+type RateLimit struct {
+	Remaining int
+	Used      int
+	ResetAt   time.Time
 }
 
 // PullRequest is one PR authored by the contributor.

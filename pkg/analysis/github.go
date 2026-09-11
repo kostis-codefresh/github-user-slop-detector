@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -65,6 +66,7 @@ func (cl *Client) Fetch(ctx context.Context, username string, since time.Time) (
 		if err != nil {
 			return nil, err
 		}
+		c.RateLimit = toRateLimit(next)
 		if next.User == nil {
 			break
 		}
@@ -80,6 +82,7 @@ func (cl *Client) Fetch(ctx context.Context, username string, since time.Time) (
 		if err != nil {
 			return nil, err
 		}
+		c.RateLimit = toRateLimit(next)
 		if next.User == nil {
 			break
 		}
@@ -115,6 +118,7 @@ func newContributor(d *queryData, since time.Time) *Contributor {
 		IssueComments: convertComments(u.IssueComments.Nodes),
 		ActiveMonths:  map[string]bool{},
 		ReviewsGiven:  u.ContributionsCollection.PullRequestReviewContributions.TotalCount,
+		RateLimit:     toRateLimit(d),
 		Since:         since,
 		Until:         time.Now().UTC(),
 	}
@@ -140,6 +144,12 @@ func newContributor(d *queryData, since time.Time) *Contributor {
 	}
 
 	return c
+}
+
+// toRateLimit lifts the budget out of a response. Every page carries it, so the
+// caller overwrites with each one and ends up with the freshest reading.
+func toRateLimit(d *queryData) RateLimit {
+	return RateLimit{Remaining: d.RateLimit.Remaining, Used: d.RateLimit.Used, ResetAt: d.RateLimit.ResetAt}
 }
 
 func convertPRs(nodes []prNode) []PullRequest {
@@ -241,14 +251,24 @@ func (cl *Client) do(ctx context.Context, vars map[string]any) (*queryData, erro
 		return nil, transientError{fmt.Errorf("read response: %w", err)}
 	}
 
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return nil, fmt.Errorf("GitHub rejected the token (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(payload)))
+	remaining, resetAt := rateLimitFromHeaders(resp.Header)
+	detail := strings.TrimSpace(string(payload))
+
+	// GitHub reports an exhausted budget as 429, or as 403 with the remaining
+	// count zeroed (the primary limit) or an "exceeded a secondary rate limit"
+	// body. A 403 that is really a bad token has neither, so it falls through.
+	if resp.StatusCode == http.StatusTooManyRequests ||
+		(resp.StatusCode == http.StatusForbidden && (remaining == 0 || mentionsRateLimit(detail))) {
+		return nil, &rateLimitError{Remaining: remaining, ResetAt: resetAt, Detail: detail}
 	}
-	if resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests {
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, fmt.Errorf("GitHub rejected the token (HTTP %d): %s", resp.StatusCode, detail)
+	}
+	if resp.StatusCode >= 500 {
 		return nil, transientError{fmt.Errorf("GitHub returned HTTP %d", resp.StatusCode)}
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(payload)))
+		return nil, fmt.Errorf("GitHub returned HTTP %d: %s", resp.StatusCode, detail)
 	}
 
 	var out graphQLResponse
@@ -261,8 +281,8 @@ func (cl *Client) do(ctx context.Context, vars map[string]any) (*queryData, erro
 			messages = append(messages, e.Message)
 		}
 		joined := strings.Join(messages, "; ")
-		if strings.Contains(strings.ToLower(joined), "rate limit") {
-			return nil, transientError{fmt.Errorf("GraphQL: %s", joined)}
+		if mentionsRateLimit(joined) {
+			return nil, &rateLimitError{Remaining: remaining, ResetAt: resetAt, Detail: joined}
 		}
 		return nil, fmt.Errorf("GraphQL: %s", joined)
 	}
@@ -270,6 +290,48 @@ func (cl *Client) do(ctx context.Context, vars map[string]any) (*queryData, erro
 		return nil, fmt.Errorf("GraphQL returned no data")
 	}
 	return out.Data, nil
+}
+
+// rateLimitError ends the run on the first response that reports it. Unlike a
+// 5xx, an exhausted budget does not clear inside a few seconds of backoff, so
+// retrying would only spend more of a budget that is already gone.
+type rateLimitError struct {
+	Remaining int //-1 when GitHub did not say
+	ResetAt   time.Time
+	Detail    string
+}
+
+func (e *rateLimitError) Error() string {
+	msg := "GitHub API rate limit exceeded (not retrying)"
+	if e.Remaining >= 0 {
+		msg += fmt.Sprintf(", %d points remaining", e.Remaining)
+	}
+	if until := time.Until(e.ResetAt); until > 0 {
+		msg += fmt.Sprintf(", resets at %s (in %s)", e.ResetAt.UTC().Format(time.RFC3339), until.Round(time.Second))
+	}
+	if e.Detail != "" {
+		msg += ": " + e.Detail
+	}
+	return msg
+}
+
+func mentionsRateLimit(s string) bool { return strings.Contains(strings.ToLower(s), "rate limit") }
+
+// rateLimitFromHeaders reads the budget GitHub attaches to every response.
+// X-RateLimit-Reset is an absolute Unix time; secondary rate limits omit it and
+// send Retry-After as a delta in seconds instead. remaining is -1 when absent.
+func rateLimitFromHeaders(h http.Header) (remaining int, resetAt time.Time) {
+	remaining = -1
+	if v, err := strconv.Atoi(h.Get("X-RateLimit-Remaining")); err == nil {
+		remaining = v
+	}
+	if v, err := strconv.ParseInt(h.Get("X-RateLimit-Reset"), 10, 64); err == nil {
+		return remaining, time.Unix(v, 0).UTC()
+	}
+	if v, err := strconv.Atoi(h.Get("Retry-After")); err == nil {
+		return remaining, time.Now().UTC().Add(time.Duration(v) * time.Second)
+	}
+	return remaining, time.Time{}
 }
 
 // transientError marks a failure worth retrying.
