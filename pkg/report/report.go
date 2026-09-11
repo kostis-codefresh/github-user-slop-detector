@@ -1,23 +1,23 @@
-// Package report renders an evaluated contributor as a markdown document.
+// Package report renders an evaluated contributor as a self-contained HTML
+// document: the stylesheet is inlined, so the report is a single file that can
+// be opened or attached anywhere.
 package report
 
 import (
 	"embed"
 	"fmt"
+	"html/template"
 	"io"
-	"text/template"
 
 	"github.com/kostis-codefresh/github-user-slop-detector/pkg/metrics"
 )
 
-// The template is embedded so the binary needs no files at runtime. It is a
-// text/template rather than html/template: the output is markdown, and HTML
-// escaping would mangle the table pipes and the <details> blocks.
+// The template is embedded so the binary needs no files at runtime.
 //
-//go:embed templates/report.md.tpl
+//go:embed templates/report.html.tpl
 var templateFS embed.FS
 
-var reportTemplate = template.Must(template.ParseFS(templateFS, "templates/report.md.tpl"))
+var reportTemplate = template.Must(template.ParseFS(templateFS, "templates/report.html.tpl"))
 
 // DetailMode controls how much of the Metric Details section is rendered.
 type DetailMode string
@@ -46,18 +46,21 @@ type row struct {
 	Value       string
 	Threshold   string
 	Status      string
+	StatusClass string //CSS class that tints the row
 }
 
 // detail is one rendered <details> block.
 type detail struct {
 	Summary string
-	Body    string
+	Body    template.HTML
+	Failed  bool
 }
 
 // view is the flattened shape the template consumes.
 type view struct {
 	StatusEmoji     string
 	StatusText      string
+	StatusClass     string
 	Username        string
 	PassedCount     int
 	TotalCount      int
@@ -71,11 +74,12 @@ type view struct {
 	WindowEnd       string
 }
 
-// Write renders the report as markdown.
+// Write renders the report as HTML.
 func Write(w io.Writer, r metrics.Report, mode DetailMode) error {
 	v := view{
 		StatusEmoji:    "⚠️",
 		StatusText:     "Needs Review",
+		StatusClass:    "needs-review",
 		Username:       r.Username,
 		PassedCount:    r.PassedCount,
 		TotalCount:     r.TotalCount,
@@ -89,7 +93,7 @@ func Write(w io.Writer, r metrics.Report, mode DetailMode) error {
 		WindowEnd:       r.WindowEnd.Format("2006-01-02"),
 	}
 	if r.Passed {
-		v.StatusEmoji, v.StatusText = "✅", "Passed"
+		v.StatusEmoji, v.StatusText, v.StatusClass = "✅", "Passed", "passed"
 	}
 
 	for _, e := range r.Evaluations {
@@ -100,6 +104,7 @@ func Write(w io.Writer, r metrics.Report, mode DetailMode) error {
 			Value:       cell(e.Result.Value),
 			Threshold:   cell(e.Result.Threshold),
 			Status:      status(e.Result),
+			StatusClass: statusClass(e.Result),
 		})
 	}
 
@@ -112,7 +117,11 @@ func Write(w io.Writer, r metrics.Report, mode DetailMode) error {
 		if mode == DetailsFailed && !block.Failed {
 			continue
 		}
-		v.Details = append(v.Details, detail{Summary: block.Summary, Body: block.Body})
+		v.Details = append(v.Details, detail{
+			Summary: block.Summary,
+			Body:    bodyHTML(block.Body),
+			Failed:  block.Failed,
+		})
 	}
 
 	return reportTemplate.Execute(w, v)
@@ -136,5 +145,18 @@ func status(r metrics.Result) string {
 		return "✅"
 	default:
 		return "❌"
+	}
+}
+
+// statusClass is the same verdict as a CSS class, so the row is tinted as well
+// as marked.
+func statusClass(r metrics.Result) string {
+	switch {
+	case !r.Active:
+		return "inactive"
+	case r.Passed:
+		return "passed"
+	default:
+		return "failed"
 	}
 }

@@ -1,5 +1,5 @@
-// contributor-report analyses a GitHub user's public activity and prints a
-// markdown contributor report, to help maintainers spot low-effort or
+// contributor-report analyses a GitHub user's public activity and writes an
+// HTML contributor report, to help maintainers spot low-effort or
 // AI-generated pull requests.
 package main
 
@@ -21,9 +21,9 @@ import (
 // version is overridden at build time with -ldflags "-X main.version=...".
 var version = "dev"
 
-// reportPath is where the markdown report is written, leaving stdout free for
+// reportPath is where the HTML report is written, leaving stdout free for
 // the progress lines.
-const reportPath = "report.md"
+const reportPath = "report.html"
 
 // Exit codes. Needs-review is kept distinct from an operational failure so the
 // tool can be scripted without conflating "bad contributor" with "broken run".
@@ -140,7 +140,7 @@ func run() int {
 	return exitPassed
 }
 
-// writeReport renders the markdown report into reportPath.
+// writeReport renders the HTML report into reportPath.
 func writeReport(result metrics.Report, mode report.DetailMode) error {
 	f, err := os.Create(reportPath)
 	if err != nil {
@@ -167,7 +167,7 @@ func splitList(s string) []string {
 
 func usage() {
 	fmt.Fprintf(flag.CommandLine.Output(),
-		"contributor-report analyses a GitHub user's public activity and prints a markdown report.\n\n"+
+		"contributor-report analyses a GitHub user's public activity and writes an HTML report.\n\n"+
 			"Usage:\n  contributor-report [flags] <username>\n\n"+
 			"The GH_TOKEN environment variable must hold a GitHub token.\n\nFlags:\n")
 	flag.PrintDefaults()

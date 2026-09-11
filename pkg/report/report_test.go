@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The whole output of this tool is one markdown document, so the renderer is
+// The whole output of this tool is one HTML document, so the renderer is
 // pinned with golden files. Run `go test ./pkg/report -update` to refresh them
 // after a deliberate change, then read the diff before committing it.
 var update = flag.Bool("update", false, "rewrite the golden files")
@@ -73,9 +73,9 @@ func TestWrite(t *testing.T) {
 		report func() metrics.Report
 		golden string
 	}{
-		{name: "Happy Path scenario", mode: DetailsAll, report: sampleReport, golden: "report-all.golden.md"},
-		{name: "Only failed details", mode: DetailsFailed, report: sampleReport, golden: "report-failed.golden.md"},
-		{name: "No details", mode: DetailsNone, report: sampleReport, golden: "report-none.golden.md"},
+		{name: "Happy Path scenario", mode: DetailsAll, report: sampleReport, golden: "report-all.golden.html"},
+		{name: "Only failed details", mode: DetailsFailed, report: sampleReport, golden: "report-failed.golden.html"},
+		{name: "No details", mode: DetailsNone, report: sampleReport, golden: "report-none.golden.html"},
 		{
 			name: "Problematic scenario",
 			mode: DetailsAll,
@@ -85,7 +85,7 @@ func TestWrite(t *testing.T) {
 				r.IsNewAccount, r.NewAccountDays = true, 30
 				return r
 			},
-			golden: "report-needs-review.golden.md",
+			golden: "report-needs-review.golden.html",
 		},
 		{
 			name: "Limited data note replaces nothing when the account is new",
@@ -96,7 +96,7 @@ func TestWrite(t *testing.T) {
 				r.Recommendations = nil
 				return r
 			},
-			golden: "report-limited-data.golden.md",
+			golden: "report-limited-data.golden.html",
 		},
 	}
 
@@ -117,8 +117,9 @@ func TestWriteRendersInactiveMetricsAsDashes(t *testing.T) {
 
 	require.NoError(t, Write(&buf, sampleReport(), DetailsNone), "rendering should not fail")
 
-	assert.Contains(t, buf.String(), "| [Repo History Min PRs](", "the inactive metric still gets a row")
-	assert.Contains(t, buf.String(), "| — | — | — |", "an inactive metric shows dashes, not a tick or a cross")
+	assert.Contains(t, buf.String(), ">Repo History Min PRs</a>", "the inactive metric still gets a row")
+	assert.Contains(t, buf.String(), `<tr class="status-inactive">`, "an inactive metric is tinted as inactive, not as a pass or a failure")
+	assert.Contains(t, buf.String(), `<td class="metric-status">—</td>`, "an inactive metric shows a dash, not a tick or a cross")
 }
 
 func TestWriteHidesTheNewAccountNoteWhenNotNew(t *testing.T) {
