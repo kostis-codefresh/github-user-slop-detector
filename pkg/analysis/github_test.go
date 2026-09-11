@@ -80,7 +80,7 @@ func TestFetch(t *testing.T) {
 	})
 
 	t.Run("Tolerates a deleted merger", func(t *testing.T) {
-		assert.Equal(t, "", c.PullRequests[1].MergedBy, "a null mergedBy should decode to an empty login")
+		assert.Empty(t, c.PullRequests[1].MergedBy, "a null mergedBy should decode to an empty login")
 	})
 
 	t.Run("Collects the active months", func(t *testing.T) {

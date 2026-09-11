@@ -152,9 +152,6 @@ func Window(now time.Time, months int) time.Time {
 	now = now.UTC()
 	// Day 0 of the month after the target normalises to the target's last day.
 	lastDay := time.Date(now.Year(), now.Month()-time.Month(months)+1, 0, 0, 0, 0, 0, time.UTC).Day()
-	day := now.Day()
-	if day > lastDay {
-		day = lastDay
-	}
+	day := min(now.Day(), lastDay)
 	return time.Date(now.Year(), now.Month()-time.Month(months), day, 0, 0, 0, 0, time.UTC)
 }

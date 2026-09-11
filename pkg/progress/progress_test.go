@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStepperLines(t *testing.T) {
@@ -56,7 +57,7 @@ func TestStepperInterruption(t *testing.T) {
 		p.Step("Fetch GitHub Activity")
 		// The standard logger writes here; see log.SetOutput in main.
 		_, err := p.Write([]byte("Fetcher -> retrying after 2s: HTTP 502\n"))
-		assert.NoError(t, err, "writing a log line through the Stepper should not fail")
+		require.NoError(t, err, "writing a log line through the Stepper should not fail")
 		p.Done("7 PRs")
 
 		want := "step 1/1  Fetch GitHub Activity ..... \n" +
@@ -72,9 +73,9 @@ func TestStepperInterruption(t *testing.T) {
 
 		p.Step("Fetch GitHub Activity")
 		_, err := p.Write([]byte("first\n"))
-		assert.NoError(t, err, "the first interrupting line should not fail")
+		require.NoError(t, err, "the first interrupting line should not fail")
 		_, err = p.Write([]byte("second\n"))
-		assert.NoError(t, err, "the second interrupting line should not fail")
+		require.NoError(t, err, "the second interrupting line should not fail")
 		p.Done("")
 
 		want := "step 1/1  Fetch GitHub Activity ..... \n" +

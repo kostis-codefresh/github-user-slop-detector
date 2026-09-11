@@ -152,7 +152,7 @@ func TestParseDetailMode(t *testing.T) {
 				assert.Error(t, err, "invalid mode %q should be rejected", tc.input)
 				return
 			}
-			assert.NoError(t, err, "valid mode %q should be accepted", tc.input)
+			require.NoError(t, err, "valid mode %q should be accepted", tc.input)
 			assert.Equal(t, tc.expected, got, "parsed mode mismatch")
 		})
 	}

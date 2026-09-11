@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: # Allow manual triggering for testing
+
+permissions:
+  contents: write # Required for creating releases
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Verify tag is from main branch
+        run: |
+          # Get the commit hash of the tag
+          TAG_COMMIT=$(git rev-list -n 1 ${{ github.ref }})
+          # Check if this commit exists in main branch
+          if ! git merge-base --is-ancestor $TAG_COMMIT origin/main; then
+            echo "Error: Tag ${{ github.ref_name }} is not from main branch"
+            exit 1
+          fi
+          echo "Tag ${{ github.ref_name }} is from main branch ✓"
+
+      - name: Build release binaries
+        run: make release
+
+      - name: List generated binaries
+        run: |
+          echo "Generated binaries:"
+          ls -la contributor-report-*
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          files: contributor-report-*
+          body: |
+            ## Contributor Report ${{ github.ref_name }}
+
+            This release contains pre-built binaries for multiple platforms.
+
+            ### Download the appropriate binary for your system:
+            - **macOS Intel**: `contributor-report-darwin-amd64`
+            - **macOS Apple Silicon**: `contributor-report-darwin-arm64`
+            - **Linux x86_64**: `contributor-report-linux-amd64`
+            - **Linux ARM64**: `contributor-report-linux-arm64`
+            - **Windows x86_64**: `contributor-report-windows-amd64.exe`
+
+            ### Usage
+            ```bash
+            # Make the binary executable (Linux/macOS)
+            chmod +x contributor-report-*
+
+            # A GitHub token is required: the GraphQL API rejects anonymous requests
+            export GH_TOKEN=$(gh auth token)
+
+            # Analyse a user, writes report.html
+            ./contributor-report octocat
+            ```
+
+            See the [README](https://github.com/${{ github.repository }}/blob/main/README.md) for detailed usage instructions.
+          draft: false
+          prerelease: false

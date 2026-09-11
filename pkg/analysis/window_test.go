@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWindow(t *testing.T) {
@@ -27,7 +28,7 @@ func TestWindow(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			now, err := time.Parse(time.RFC3339, tc.now)
-			assert.NoError(t, err, "test case has an unparseable date")
+			require.NoError(t, err, "test case has an unparseable date")
 
 			got := Window(now, tc.months)
 
