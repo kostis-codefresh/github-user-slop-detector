@@ -34,15 +34,18 @@ func (m *CodeReviews) DetailGroup() string { return "codeReviews" }
 
 func (m *CodeReviews) Detail(c *analysis.Contributor, _ Config) Detail {
 	if c.ReviewsGiven == 0 {
-		return Detail{Summary: "👀 No code reviews given", Body: "No code reviews found in the analysis window."}
+		return Detail{
+			Summary: "👀 No code reviews given",
+			Blocks:  []Block{text("No code reviews found in the analysis window.")},
+		}
 	}
 	return Detail{
 		Summary: fmt.Sprintf("👀 %d review%s given", c.ReviewsGiven, plural(c.ReviewsGiven)),
-		Body: bullets(
-			fmt.Sprintf("- Reviews: %d", c.ReviewsGiven),
+		Blocks: []Block{list(
+			fmt.Sprintf("Reviews: %d", c.ReviewsGiven),
 			// GitHub's contribution collection exposes no comment count, so
 			// this is the same estimate the original action reports.
-			fmt.Sprintf("- Review comments: %d", c.ReviewsGiven/2),
-		),
+			fmt.Sprintf("Review comments: %d", c.ReviewsGiven/2),
+		)},
 	}
 }

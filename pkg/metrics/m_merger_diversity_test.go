@@ -111,11 +111,15 @@ func TestMergerDiversityDetail(t *testing.T) {
 		detail := (&MergerDiversity{}).Detail(c, testConfig())
 
 		assert.Equal(t, "👥 2 unique maintainers", detail.Summary, "summary mismatch")
-		assert.Contains(t, detail.Body, "**Mergers:** @octocat, @maintainer-a", "merger list mismatch")
-		assert.Contains(t, detail.Body, "- Self-merges: 2 (own repos: 1, external: 1)", "self-merge breakdown mismatch")
-		assert.Contains(t, detail.Body, "- Merged by others: 1", "others count mismatch")
-		assert.Contains(t, detail.Body, "- External repos with merge rights: trusted/repo", "external repo list missing")
-		assert.NotContains(t, detail.Body, "⚠️", "the self-merge warning should not fire here")
+		assert.Equal(t, []Block{
+			para(Line{Label: "Mergers:", Text: "@octocat, @maintainer-a"}),
+			list(
+				"Self-merges: 2 (own repos: 1, external: 1)",
+				"Merged by others: 1",
+				"Self-merge rate: 67%",
+				"External repos with merge rights: trusted/repo",
+			),
+		}, detail.Blocks, "merger detail body mismatch")
 	})
 
 	t.Run("Problematic scenario warns about self-merges", func(t *testing.T) {
@@ -125,7 +129,8 @@ func TestMergerDiversityDetail(t *testing.T) {
 
 		detail := (&MergerDiversity{}).Detail(c, testConfig())
 
-		assert.Contains(t, detail.Body, "⚠️ All merges are self-merges on own repositories", "warning missing")
+		assert.Equal(t, text("⚠️ All merges are self-merges on own repositories"),
+			detail.Blocks[len(detail.Blocks)-1], "warning missing")
 	})
 
 	t.Run("Empty data scenario", func(t *testing.T) {

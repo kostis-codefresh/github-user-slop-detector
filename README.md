@@ -21,47 +21,44 @@ against any username.
 ## Example report
 
 The report is a single self-contained HTML file — the stylesheet is inlined, so there is nothing to serve and nothing
-to copy alongside it. Open `report.html` in a browser, or attach it to a ticket as-is. Its content reads like this:
+to copy alongside it. Open `report.html` in a browser, or attach it to a ticket as-is. It shows:
 
 ```
 ✅ Contributor Report
 @jdiegosierra — Passed (12/13 metrics passed)
 
-| Metric | Description | Value | Threshold | Status |
-|--------|-------------|-------|-----------|--------|
-| [PR Merge Rate](...) | PRs merged vs closed | 84% | >= 30% | ✅ |
-| [Repo Quality](...) | Repos with ≥100 stars | 1 | >= 2 | ❌ |
-| [Positive Reactions](...) | Positive reactions received | 43 | >= 5 | ✅ |
-| [Negative Reactions](...) | Negative reactions received | 0 | <= 5 | ✅ |
-| [Account Age](...) | GitHub account age | 3432 days | >= 30 days | ✅ |
-| [Activity Consistency](...) | Regular activity over time | 100% | >= 50% | ✅ |
-| [Issue Engagement](...) | Issues with community engagement | 5 | >= 1 | ✅ |
-| [Code Reviews](...) | Code reviews given to others | 4 | >= 1 | ✅ |
-| [Merger Diversity](...) | Unique maintainers who merged PRs | 2 | >= 2 | ✅ |
-| [Repo History Merge Rate](...) | Merge rate in this repo | 89% | >= 0% | ✅ |
-| [Repo History Min PRs](...) | Previous PRs in this repo | 28 | >= 0 | ✅ |
-| [Profile Completeness](...) | Profile richness (bio, followers) | 90 | >= 20 | ✅ |
-| [Suspicious Patterns](...) | Spam-like activity detection | 0 | N/A | ✅ |
+Metrics
+  METRIC                    DESCRIPTION                         VALUE       THRESHOLD    STATUS
+  PR Merge Rate             PRs merged vs closed                84%         >= 30%       ✅
+  Repo Quality              Repos with ≥100 stars               1           >= 2         ❌
+  Positive Reactions        Positive reactions received         43          >= 5         ✅
+  Negative Reactions        Negative reactions received         0           <= 5         ✅
+  Account Age               GitHub account age                  3432 days   >= 30 days   ✅
+  Activity Consistency      Regular activity over time          100%        >= 50%       ✅
+  Issue Engagement          Issues with community engagement    5           >= 1         ✅
+  Code Reviews              Code reviews given to others        4           >= 1         ✅
+  Merger Diversity          Unique maintainers who merged PRs   2           >= 2         ✅
+  Repo History Merge Rate   Merge rate in this repo             89%         >= 0%        ✅
+  Repo History Min PRs      Previous PRs in this repo           28          >= 0         ✅
+  Profile Completeness      Profile richness (bio, followers)   90          >= 20        ✅
+  Suspicious Patterns       Spam-like activity detection        0           N/A          ✅
 
 Metric Details
-
   ▸ 📊 84% merge rate (26/32 PRs)
-      - Merged: 26
-      - Closed without merge: 5
-      - Open: 1
-      - Avg PR size: 2005.3 lines
-      - Very short PRs (<10 lines): 11
-
+      Merged: 26
+      Closed without merge: 5
+      Open: 1
+      Avg PR size: 2005.3 lines
+      Very short PRs (<10 lines): 11
   ▸ ...
 
 Recommendations
-
-- Consider contributing to established open source projects with significant community adoption.
+  Consider contributing to established open source projects with significant community adoption.
 ```
 
-Failed metrics are tinted red in the table, passed ones green, and metrics that did not apply are dimmed. Each metric
-also gets a collapsible `<details>` block explaining how its number was reached — the table tells you *what*, the
-details tell you *why*.
+Failed metrics are tinted red in the table, passed ones green, and metrics that did not apply are dimmed. Every
+metric name links to the upstream page explaining how its number is derived, and each one gets a collapsible
+`<details>` block showing the evidence behind it — the table tells you *what*, the details tell you *why*.
 
 ## 🚀 How to Run This Tool
 
@@ -153,7 +150,7 @@ When you run it, the tool will:
 main.go            flag parsing and the pipeline
 pkg/analysis/      the Contributor data model and the GitHub GraphQL fetcher
 pkg/metrics/       the Metric interface, the registry, one file per metric, the spam patterns
-pkg/report/        the embedded HTML template, the renderer and the markdown-to-HTML converter
+pkg/report/        the embedded HTML template and the renderer
 ```
 
 Adding a metric touches three places: a new `pkg/metrics/m_<name>.go` implementing `Metric`, an entry in the

@@ -19,17 +19,17 @@ func (repoHistoryDetail) Detail(c *analysis.Contributor, cfg Config) Detail {
 	if history.firstTime() {
 		return Detail{
 			Summary: "📁 First-time contributor",
-			Body:    bullets("Repository: "+history.repo, "This is a first contribution to this repository."),
+			Blocks:  []Block{text("Repository: "+history.repo, "This is a first contribution to this repository.")},
 		}
 	}
 	return Detail{
 		Summary: fmt.Sprintf("📁 %d previous PR%s in this repo", history.total, plural(history.total)),
-		Body: bullets(
-			"- Repository: "+history.repo,
-			fmt.Sprintf("- Merged: %d", history.merged),
-			fmt.Sprintf("- Closed without merge: %d", history.closedUnmerged),
-			"- Repo merge rate: "+pct(history.mergeRate()),
-		),
+		Blocks: []Block{list(
+			"Repository: "+history.repo,
+			fmt.Sprintf("Merged: %d", history.merged),
+			fmt.Sprintf("Closed without merge: %d", history.closedUnmerged),
+			"Repo merge rate: "+pct(history.mergeRate()),
+		)},
 	}
 }
 

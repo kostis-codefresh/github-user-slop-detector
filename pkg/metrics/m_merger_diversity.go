@@ -59,33 +59,39 @@ func (m *MergerDiversity) DetailGroup() string { return "mergerDiversity" }
 func (m *MergerDiversity) Detail(c *analysis.Contributor, _ Config) Detail {
 	stats := collectMergers(c)
 	if stats.totalMerged == 0 {
-		return Detail{Summary: "👥 No merged PRs", Body: "No merged PRs found in the analysis window."}
+		return Detail{
+			Summary: "👥 No merged PRs",
+			Blocks:  []Block{text("No merged PRs found in the analysis window.")},
+		}
 	}
 
-	var lines []string
+	var blocks []Block
 	if len(stats.mergers) > 0 {
 		shown := stats.mergers
 		suffix := ""
 		if len(shown) > 5 {
 			shown, suffix = shown[:5], "..."
 		}
-		lines = append(lines, "**Mergers:** @"+strings.Join(shown, ", @")+suffix, "")
+		blocks = append(blocks, para(Line{Label: "Mergers:", Text: "@" + strings.Join(shown, ", @") + suffix}))
 	}
-	lines = append(lines,
-		fmt.Sprintf("- Self-merges: %d (own repos: %d, external: %d)",
+
+	items := []string{
+		fmt.Sprintf("Self-merges: %d (own repos: %d, external: %d)",
 			stats.selfMerges, stats.selfOnOwnRepos, stats.selfOnOtherRepos),
-		fmt.Sprintf("- Merged by others: %d", stats.mergedByOthers),
-		"- Self-merge rate: "+pct(stats.selfMergeRate()),
-	)
-	if len(stats.externalRepos) > 0 {
-		lines = append(lines, "- External repos with merge rights: "+strings.Join(stats.externalRepos, ", "))
+		fmt.Sprintf("Merged by others: %d", stats.mergedByOthers),
+		"Self-merge rate: " + pct(stats.selfMergeRate()),
 	}
+	if len(stats.externalRepos) > 0 {
+		items = append(items, "External repos with merge rights: "+strings.Join(stats.externalRepos, ", "))
+	}
+	blocks = append(blocks, list(items...))
+
 	if stats.onlySelfMergesOnOwnRepos() {
-		lines = append(lines, "", "⚠️ All merges are self-merges on own repositories")
+		blocks = append(blocks, text("⚠️ All merges are self-merges on own repositories"))
 	}
 
 	return Detail{
 		Summary: fmt.Sprintf("👥 %d unique maintainer%s", stats.uniqueMergers, plural(stats.uniqueMergers)),
-		Body:    bullets(lines...),
+		Blocks:  blocks,
 	}
 }

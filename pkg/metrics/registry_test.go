@@ -31,7 +31,7 @@ func TestRegistryIsWellFormed(t *testing.T) {
 		assert.True(t, strings.HasPrefix(meta.DocumentationURL(), docsBaseURL),
 			"metric %s builds an unexpected documentation URL", meta.Key)
 		assert.True(t, strings.HasSuffix(meta.DocumentationURL(), ".md"),
-			"metric %s should link to a markdown page", meta.Key)
+			"metric %s should link to an upstream documentation page", meta.Key)
 	}
 }
 
@@ -115,7 +115,7 @@ func TestEvaluateMarksSharedBlockFailedWhenEitherMetricFails(t *testing.T) {
 
 	report := Evaluate(c, testConfig(), nil)
 
-	var reactions DetailBlock
+	var reactions DetailSection
 	for _, block := range report.Details {
 		if block.Group == "reactions" {
 			reactions = block

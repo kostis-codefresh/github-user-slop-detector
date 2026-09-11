@@ -40,7 +40,8 @@ func TestCodeReviewsDetail(t *testing.T) {
 		detail := (&CodeReviews{}).Detail(c, testConfig())
 
 		assert.Equal(t, "👀 4 reviews given", detail.Summary, "summary mismatch")
-		assert.Contains(t, detail.Body, "- Review comments: 2", "review comment estimate mismatch")
+		assert.Equal(t, []Block{list("Reviews: 4", "Review comments: 2")}, detail.Blocks,
+			"review detail body mismatch")
 	})
 
 	t.Run("Empty data scenario", func(t *testing.T) {

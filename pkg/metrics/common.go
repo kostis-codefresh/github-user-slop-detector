@@ -58,8 +58,39 @@ func joinWithCommas(items []string) string {
 	}
 }
 
-// bullets joins detail body lines.
-func bullets(lines ...string) string { return strings.Join(lines, "\n") }
+// The detail body constructors. Metrics build their bodies out of these rather
+// than writing Block literals, so a kind is only ever named in one place.
+
+// text is a paragraph of plain lines.
+func text(lines ...string) Block {
+	block := Block{Kind: KindText}
+	for _, line := range lines {
+		block.Lines = append(block.Lines, Line{Text: line})
+	}
+	return block
+}
+
+// para is a paragraph whose lines carry an emphasised label.
+func para(lines ...Line) Block { return Block{Kind: KindText, Lines: lines} }
+
+// list is a bullet list.
+func list(items ...string) Block {
+	block := text(items...)
+	block.Kind = KindList
+	return block
+}
+
+// note is an italic aside.
+func note(s string) Block {
+	block := text(s)
+	block.Kind = KindNote
+	return block
+}
+
+// table is a header row plus body rows.
+func table(head []string, rows ...[]string) Block {
+	return Block{Kind: KindTable, Head: head, Rows: rows}
+}
 
 // checkmark renders a boolean as the tick/cross used in the profile table.
 func checkmark(ok bool) string {

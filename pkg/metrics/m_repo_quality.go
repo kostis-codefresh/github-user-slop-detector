@@ -46,7 +46,7 @@ func (m *RepoQuality) Detail(c *analysis.Contributor, cfg Config) Detail {
 	if len(repos) == 0 {
 		return Detail{
 			Summary: "📊 No repository contributions found",
-			Body:    "No merged PRs found in the analysis window.",
+			Blocks:  []Block{text("No merged PRs found in the analysis window.")},
 		}
 	}
 
@@ -61,21 +61,23 @@ func (m *RepoQuality) Detail(c *analysis.Contributor, cfg Config) Detail {
 		}
 	}
 
-	lines := []string{"| Repository | Stars | PRs |", "|------------|-------|-----|"}
 	shown := repos
 	if len(shown) > 5 {
 		shown = shown[:5]
 	}
+	rows := make([][]string, 0, len(shown))
 	for _, repo := range shown {
-		lines = append(lines, fmt.Sprintf("| %s | %s | %d |", repo.Repo(), compactStars(repo.Stars), repo.MergedPR))
+		rows = append(rows, []string{repo.Repo(), compactStars(repo.Stars), count(repo.MergedPR)})
 	}
+
+	blocks := []Block{table([]string{"Repository", "Stars", "PRs"}, rows...)}
 	if len(repos) > len(shown) {
-		lines = append(lines, "", fmt.Sprintf("_...and %d more repositories_", len(repos)-len(shown)))
+		blocks = append(blocks, note(fmt.Sprintf("...and %d more repositories", len(repos)-len(shown))))
 	}
-	lines = append(lines, "", fmt.Sprintf("Avg stars: %d | Highest: %d", totalStars/len(repos), highest))
+	blocks = append(blocks, text(fmt.Sprintf("Avg stars: %d | Highest: %d", totalStars/len(repos), highest)))
 
 	return Detail{
 		Summary: fmt.Sprintf("📊 %d quality repo%s found", quality, plural(quality)),
-		Body:    bullets(lines...),
+		Blocks:  blocks,
 	}
 }

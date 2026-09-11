@@ -81,8 +81,10 @@ func TestProfileCompletenessDetail(t *testing.T) {
 	detail := (&ProfileCompleteness{}).Detail(c, testConfig())
 
 	assert.Equal(t, "📝 Score: 70/100", detail.Summary, "summary mismatch")
-	assert.Contains(t, detail.Body, "| Followers | 26 | +30/40 |", "follower row mismatch")
-	assert.Contains(t, detail.Body, "| Public repos | 13 | +20/20 |", "repo row mismatch")
-	assert.Contains(t, detail.Body, "| Bio | ✅ | +20/20 |", "bio row mismatch")
-	assert.Contains(t, detail.Body, "| Company | ❌ | +0/20 |", "company row mismatch")
+	assert.Equal(t, []Block{table([]string{"Component", "Status", "Points"},
+		[]string{"Followers", "26", "+30/40"},
+		[]string{"Public repos", "13", "+20/20"},
+		[]string{"Bio", "✅", "+20/20"},
+		[]string{"Company", "❌", "+0/20"},
+	)}, detail.Blocks, "profile score table mismatch")
 }

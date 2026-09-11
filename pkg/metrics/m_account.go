@@ -17,11 +17,11 @@ func (accountDetail) DetailGroup() string { return "account" }
 func (accountDetail) Detail(c *analysis.Contributor, cfg Config) Detail {
 	return Detail{
 		Summary: fmt.Sprintf("📅 Account: %d days old", c.AgeInDays()),
-		Body: bullets(
-			"- Created: "+c.CreatedAt.UTC().Format("2006-01-02"),
-			fmt.Sprintf("- Active months: %d/%d", c.ActiveMonthCount(), windowMonths(cfg)),
-			"- Consistency score: "+pct(consistency(c, cfg)),
-		),
+		Blocks: []Block{list(
+			"Created: "+c.CreatedAt.UTC().Format("2006-01-02"),
+			fmt.Sprintf("Active months: %d/%d", c.ActiveMonthCount(), windowMonths(cfg)),
+			"Consistency score: "+pct(consistency(c, cfg)),
+		)},
 	}
 }
 

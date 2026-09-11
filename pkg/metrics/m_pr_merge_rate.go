@@ -46,20 +46,23 @@ func (m *PRMergeRate) DetailGroup() string { return "prMergeRate" }
 func (m *PRMergeRate) Detail(c *analysis.Contributor, _ Config) Detail {
 	stats := collectPRStats(c.PullRequests)
 	if stats.total == 0 {
-		return Detail{Summary: "📊 No pull requests found", Body: "No PRs found in the analysis window."}
+		return Detail{
+			Summary: "📊 No pull requests found",
+			Blocks:  []Block{text("No PRs found in the analysis window.")},
+		}
 	}
 
-	lines := []string{
-		fmt.Sprintf("- Merged: %d", stats.merged),
-		fmt.Sprintf("- Closed without merge: %d", stats.closedUnmerged),
-		fmt.Sprintf("- Open: %d", stats.open),
-		"- Avg PR size: " + strconv.FormatFloat(stats.averageSize(), 'f', 1, 64) + " lines",
+	items := []string{
+		fmt.Sprintf("Merged: %d", stats.merged),
+		fmt.Sprintf("Closed without merge: %d", stats.closedUnmerged),
+		fmt.Sprintf("Open: %d", stats.open),
+		"Avg PR size: " + strconv.FormatFloat(stats.averageSize(), 'f', 1, 64) + " lines",
 	}
 	if stats.veryShort > 0 {
-		lines = append(lines, fmt.Sprintf("- Very short PRs (<10 lines): %d", stats.veryShort))
+		items = append(items, fmt.Sprintf("Very short PRs (<10 lines): %d", stats.veryShort))
 	}
 	return Detail{
 		Summary: fmt.Sprintf("📊 %s merge rate (%d/%d PRs)", pct(stats.mergeRate()), stats.merged, stats.total),
-		Body:    bullets(lines...),
+		Blocks:  []Block{list(items...)},
 	}
 }

@@ -114,13 +114,12 @@ func (m *ProfileCompleteness) Detail(c *analysis.Contributor, _ Config) Detail {
 	}
 	return Detail{
 		Summary: fmt.Sprintf("📝 Score: %d/100", profileScore(c)),
-		Body: bullets(
-			"| Component | Status | Points |",
-			"|-----------|--------|--------|",
-			fmt.Sprintf("| Followers | %d | +%d/40 |", c.Followers, followerPoints(c.Followers)),
-			fmt.Sprintf("| Public repos | %d | +%d/20 |", c.PublicRepos, repoPoints(c.PublicRepos)),
-			fmt.Sprintf("| Bio | %s | +%d/20 |", checkmark(c.Bio != ""), bio),
-			fmt.Sprintf("| Company | %s | +%d/20 |", checkmark(c.Company != ""), company),
-		),
+		Blocks: []Block{table(
+			[]string{"Component", "Status", "Points"},
+			[]string{"Followers", count(c.Followers), fmt.Sprintf("+%d/40", followerPoints(c.Followers))},
+			[]string{"Public repos", count(c.PublicRepos), fmt.Sprintf("+%d/20", repoPoints(c.PublicRepos))},
+			[]string{"Bio", checkmark(c.Bio != ""), fmt.Sprintf("+%d/20", bio)},
+			[]string{"Company", checkmark(c.Company != ""), fmt.Sprintf("+%d/20", company)},
+		)},
 	}
 }

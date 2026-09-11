@@ -47,17 +47,28 @@ func sampleReport() metrics.Report {
 				Result:   metrics.Result{Active: true, Passed: true, Value: "0", Threshold: "N/A"},
 			},
 		},
-		Details: []metrics.DetailBlock{
+		Details: []metrics.DetailSection{
 			{
 				Group:   "prMergeRate",
 				Summary: "📊 86% merge rate (25/32 PRs)",
-				Body:    "- Merged: 25\n- Closed without merge: 4\n- Open: 3",
+				Blocks: []metrics.Block{{
+					Kind: metrics.KindList,
+					Lines: []metrics.Line{
+						{Text: "Merged: 25"},
+						{Text: "Closed without merge: 4"},
+						{Text: "Open: 3"},
+					},
+				}},
 			},
 			{
 				Group:   "repoQuality",
 				Summary: "📊 1 quality repo found",
-				Body:    "| Repository | Stars | PRs |\n|------------|-------|-----|\n| davila7/claude-code-templates | 23.4k | 1 |",
-				Failed:  true,
+				Blocks: []metrics.Block{{
+					Kind: metrics.KindTable,
+					Head: []string{"Repository", "Stars", "PRs"},
+					Rows: [][]string{{"davila7/claude-code-templates", "23.4k", "1"}},
+				}},
+				Failed: true,
 			},
 		},
 		Recommendations: []string{

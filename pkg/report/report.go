@@ -52,7 +52,7 @@ type row struct {
 // detail is one rendered <details> block.
 type detail struct {
 	Summary string
-	Body    template.HTML
+	Blocks  []metrics.Block
 	Failed  bool
 }
 
@@ -119,7 +119,7 @@ func Write(w io.Writer, r metrics.Report, mode DetailMode) error {
 		}
 		v.Details = append(v.Details, detail{
 			Summary: block.Summary,
-			Body:    bodyHTML(block.Body),
+			Blocks:  block.Blocks,
 			Failed:  block.Failed,
 		})
 	}

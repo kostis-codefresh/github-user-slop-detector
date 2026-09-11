@@ -174,15 +174,22 @@ func TestRepoHistoryDetail(t *testing.T) {
 		detail := (&RepoHistoryMergeRate{}).Detail(c, cfg)
 
 		assert.Equal(t, "📁 3 previous PRs in this repo", detail.Summary, "summary mismatch")
-		assert.Contains(t, detail.Body, "- Repository: org/project", "repository line missing")
-		assert.Contains(t, detail.Body, "- Merged: 2", "merged count mismatch")
-		assert.Contains(t, detail.Body, "- Repo merge rate: 67%", "merge rate mismatch")
+		assert.Equal(t, []Block{list(
+			"Repository: org/project",
+			"Merged: 2",
+			"Closed without merge: 1",
+			"Repo merge rate: 67%",
+		)}, detail.Blocks, "repo history detail body mismatch")
 	})
 
 	t.Run("First-time contributor scenario", func(t *testing.T) {
 		detail := (&RepoHistoryMinPRs{}).Detail(contributor(), cfg)
 
 		assert.Equal(t, "📁 First-time contributor", detail.Summary, "first-timer summary mismatch")
+		assert.Equal(t, []Block{text(
+			"Repository: org/project",
+			"This is a first contribution to this repository.",
+		)}, detail.Blocks, "first-timer body mismatch")
 	})
 }
 

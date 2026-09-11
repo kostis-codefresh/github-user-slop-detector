@@ -1,5 +1,5 @@
 // Package progress prints one numbered line per pipeline step so a run shows
-// what it is doing. The CLI points it at stdout; the markdown report itself is
+// what it is doing. The CLI points it at stdout; the HTML report itself is
 // written to a file, so the two never interleave.
 package progress
 

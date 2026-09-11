@@ -45,12 +45,18 @@ func (m *SuspiciousPatterns) DetailGroup() string { return "suspiciousPatterns" 
 
 func (m *SuspiciousPatterns) Detail(c *analysis.Contributor, cfg Config) Detail {
 	if !cfg.SpamDetection {
-		return Detail{Summary: "➖ Spam detection disabled", Body: "Run without --spam-detection=false to enable."}
+		return Detail{
+			Summary: "➖ Spam detection disabled",
+			Blocks:  []Block{text("Run without --spam-detection=false to enable.")},
+		}
 	}
 
 	detections := detectAll(c, cfg)
 	if len(detections) == 0 {
-		return Detail{Summary: "✅ No suspicious patterns detected", Body: "Activity appears normal."}
+		return Detail{
+			Summary: "✅ No suspicious patterns detected",
+			Blocks:  []Block{text("Activity appears normal.")},
+		}
 	}
 
 	critical, warnings := splitBySeverity(detections)
@@ -62,24 +68,22 @@ func (m *SuspiciousPatterns) Detail(c *analysis.Contributor, cfg Config) Detail 
 		parts = append(parts, fmt.Sprintf("%d warning", len(warnings)))
 	}
 
-	var lines []string
-	for i, detection := range detections {
-		if i > 0 {
-			lines = append(lines, "")
-		}
-		lines = append(lines,
-			fmt.Sprintf("**%s %s: %s**", severityIcon(detection.Severity), detection.Severity, detection.Type),
-			detection.Description,
-			"")
+	var blocks []Block
+	for _, detection := range detections {
+		heading := fmt.Sprintf("%s %s: %s", severityIcon(detection.Severity), detection.Severity, detection.Type)
+		blocks = append(blocks, para(Line{Label: heading}, Line{Text: detection.Description}))
+
+		items := make([]string, 0, len(detection.Evidence))
 		for _, evidence := range detection.Evidence {
-			lines = append(lines, fmt.Sprintf("- %s: %s", evidence.Key, evidence.Value))
+			items = append(items, evidence.Key+": "+evidence.Value)
 		}
+		blocks = append(blocks, list(items...))
 	}
 
 	return Detail{
 		Summary: fmt.Sprintf("🚨 %d pattern%s detected (%s)",
 			len(detections), plural(len(detections)), strings.Join(parts, ", ")),
-		Body: bullets(lines...),
+		Blocks: blocks,
 	}
 }
 

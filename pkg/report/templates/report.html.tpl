@@ -1,3 +1,19 @@
+{{define "blocks"}}{{range .}}{{if eq .Kind "table"}}<table>
+<thead>
+<tr>{{range .Head}}<th>{{.}}</th>{{end}}</tr>
+</thead>
+<tbody>
+{{range .Rows}}<tr>{{range .}}<td>{{.}}</td>{{end}}</tr>
+{{end}}</tbody>
+</table>
+{{else if eq .Kind "list"}}<ul>
+{{range .Lines}}<li>{{template "line" .}}</li>
+{{end}}</ul>
+{{else if eq .Kind "note"}}<p><em>{{range .Lines}}{{.Text}}{{end}}</em></p>
+{{else}}<p>{{range $i, $l := .Lines}}{{if $i}}<br>
+{{end}}{{template "line" $l}}{{end}}</p>
+{{end}}{{end}}{{end -}}
+{{define "line"}}{{if .Label}}<strong>{{.Label}}</strong>{{if .Text}} {{end}}{{end}}{{.Text}}{{end -}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -336,7 +352,7 @@ footer {
 {{range .Details}}<details{{if .Failed}} class="failed"{{end}}>
 <summary>{{.Summary}}</summary>
 <div class="detail-body">
-{{.Body}}</div>
+{{template "blocks" .Blocks}}</div>
 </details>
 {{end}}{{end}}{{if .Recommendations}}
 <h2>Recommendations</h2>

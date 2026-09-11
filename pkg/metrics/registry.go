@@ -39,12 +39,6 @@ type Result struct {
 	DataPoints     int    //evidence behind the verdict, summed for the limited-data note
 }
 
-// Detail is the body of a metric's <details> block.
-type Detail struct {
-	Summary string
-	Body    string
-}
-
 // Metric is one check over a fetched contributor. Metrics are stateless structs
 // and are registered by hand in NewRegistry.
 type Metric interface {
@@ -85,11 +79,11 @@ type Evaluation struct {
 	Result   Result
 }
 
-// DetailBlock is a rendered <details> section.
-type DetailBlock struct {
+// DetailSection is one rendered <details> section.
+type DetailSection struct {
 	Group   string
 	Summary string
-	Body    string
+	Blocks  []Block
 	Failed  bool //true when any metric in the group failed
 }
 
@@ -103,7 +97,7 @@ type Report struct {
 	NewAccountDays  int
 	HasLimitedData  bool
 	Evaluations     []Evaluation
-	Details         []DetailBlock
+	Details         []DetailSection
 	Recommendations []string
 	WindowStart     time.Time
 	WindowEnd       time.Time
@@ -155,10 +149,10 @@ func Evaluate(c *analysis.Contributor, cfg Config, prog *progress.Stepper) Repor
 		}
 		detail := metric.Detail(c, cfg)
 		groupIndex[group] = len(report.Details)
-		report.Details = append(report.Details, DetailBlock{
+		report.Details = append(report.Details, DetailSection{
 			Group:   group,
 			Summary: detail.Summary,
-			Body:    detail.Body,
+			Blocks:  detail.Blocks,
 			Failed:  !result.Passed,
 		})
 	}

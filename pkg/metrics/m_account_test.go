@@ -5,6 +5,7 @@ import (
 
 	"github.com/kostis-codefresh/github-user-slop-detector/pkg/analysis"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // activeIn marks the given "YYYY-MM" months as having contributions.
@@ -140,8 +141,13 @@ func TestAccountDetail(t *testing.T) {
 	detail := (&AccountAge{}).Detail(c, testConfig())
 
 	assert.Equal(t, "📅 Account: 3261 days old", detail.Summary, "summary mismatch")
-	assert.Contains(t, detail.Body, "- Active months: 2/12", "active month line mismatch")
-	assert.Contains(t, detail.Body, "- Consistency score: 17%", "consistency line mismatch")
+	require.Len(t, detail.Blocks, 1, "the account detail is a single bullet list")
+	// The created date is derived from the clock, so only the lines that do not
+	// move with it are pinned.
+	assert.Equal(t, []Line{
+		{Text: "Active months: 2/12"},
+		{Text: "Consistency score: 17%"},
+	}, detail.Blocks[0].Lines[1:], "account detail lines mismatch")
 }
 
 func TestAccountMetricsShareOneDetailBlock(t *testing.T) {

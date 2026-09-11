@@ -6,6 +6,7 @@ import (
 
 	"github.com/kostis-codefresh/github-user-slop-detector/pkg/analysis"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // manyPRs spreads n merged PRs over repoCount repositories with the given
@@ -193,8 +194,11 @@ func TestSuspiciousPatternsDetail(t *testing.T) {
 
 		assert.Contains(t, detail.Summary, "🚨", "the summary should flag the findings")
 		assert.Contains(t, detail.Summary, "critical", "the summary should count criticals")
-		assert.Contains(t, detail.Body, "**🔴 CRITICAL: SPAM_PATTERN**", "the critical finding should be headed")
-		assert.Contains(t, detail.Body, "- accountAgeDays: 10", "evidence should be listed")
+		require.NotEmpty(t, detail.Blocks, "a detected pattern should produce a body")
+		assert.Equal(t, "🔴 CRITICAL: SPAM_PATTERN", detail.Blocks[0].Lines[0].Label,
+			"the critical finding should be headed")
+		assert.Contains(t, detail.Blocks[1].Lines, Line{Text: "accountAgeDays: 10"},
+			"evidence should be listed")
 	})
 
 	t.Run("Happy Path scenario", func(t *testing.T) {
@@ -203,6 +207,6 @@ func TestSuspiciousPatternsDetail(t *testing.T) {
 		detail := (&SuspiciousPatterns{}).Detail(c, testConfig())
 
 		assert.Equal(t, "✅ No suspicious patterns detected", detail.Summary, "clean summary mismatch")
-		assert.Equal(t, "Activity appears normal.", detail.Body, "clean body mismatch")
+		assert.Equal(t, []Block{text("Activity appears normal.")}, detail.Blocks, "clean body mismatch")
 	})
 }

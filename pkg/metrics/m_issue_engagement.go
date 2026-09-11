@@ -72,15 +72,18 @@ func (m *IssueEngagement) DetailGroup() string { return "issueEngagement" }
 func (m *IssueEngagement) Detail(c *analysis.Contributor, _ Config) Detail {
 	stats := collectIssues(c)
 	if stats.created == 0 {
-		return Detail{Summary: "💬 No issues created", Body: "No issues found in the analysis window."}
+		return Detail{
+			Summary: "💬 No issues created",
+			Blocks:  []Block{text("No issues found in the analysis window.")},
+		}
 	}
 	return Detail{
 		Summary: fmt.Sprintf("💬 %d issue%s with engagement", stats.engaged(), plural(stats.engaged())),
-		Body: bullets(
-			fmt.Sprintf("- Issues created: %d", stats.created),
-			fmt.Sprintf("- With comments from others: %d", stats.withComments),
-			fmt.Sprintf("- With reactions: %d", stats.withReactions),
-			"- Avg comments per issue: "+strconv.FormatFloat(stats.averageComments(), 'f', 1, 64),
-		),
+		Blocks: []Block{list(
+			fmt.Sprintf("Issues created: %d", stats.created),
+			fmt.Sprintf("With comments from others: %d", stats.withComments),
+			fmt.Sprintf("With reactions: %d", stats.withReactions),
+			"Avg comments per issue: "+strconv.FormatFloat(stats.averageComments(), 'f', 1, 64),
+		)},
 	}
 }

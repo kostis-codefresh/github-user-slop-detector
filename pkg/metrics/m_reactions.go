@@ -17,17 +17,20 @@ func (reactionsDetail) DetailGroup() string { return "reactions" }
 func (reactionsDetail) Detail(c *analysis.Contributor, _ Config) Detail {
 	tally := collectReactions(c)
 	if tally.comments == 0 {
-		return Detail{Summary: "👍 No comments analyzed", Body: "No comments found in the analysis window."}
+		return Detail{
+			Summary: "👍 No comments analyzed",
+			Blocks:  []Block{text("No comments found in the analysis window.")},
+		}
 	}
 	return Detail{
 		Summary: fmt.Sprintf("👍 %d positive / %d negative", tally.positive, tally.negative),
-		Body: bullets(
-			fmt.Sprintf("- Comments analyzed: %d", tally.comments),
-			fmt.Sprintf("- Positive reactions: %d", tally.positive),
-			fmt.Sprintf("- Negative reactions: %d", tally.negative),
-			fmt.Sprintf("- Neutral reactions: %d", tally.neutral),
-			"- Positive ratio: "+pct(tally.ratio()),
-		),
+		Blocks: []Block{list(
+			fmt.Sprintf("Comments analyzed: %d", tally.comments),
+			fmt.Sprintf("Positive reactions: %d", tally.positive),
+			fmt.Sprintf("Negative reactions: %d", tally.negative),
+			fmt.Sprintf("Neutral reactions: %d", tally.neutral),
+			"Positive ratio: "+pct(tally.ratio()),
+		)},
 	}
 }
 

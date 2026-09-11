@@ -84,10 +84,14 @@ func TestRepoQualityDetail(t *testing.T) {
 		detail := (&RepoQuality{}).Detail(c, testConfig())
 
 		assert.Equal(t, "📊 1 quality repo found", detail.Summary, "summary mismatch")
-		// Highest-starred first, with thousands compacted.
-		assert.Contains(t, detail.Body, "| huge/repo | 23.4k | 2 |", "top repo row mismatch")
-		assert.Contains(t, detail.Body, "| small/repo | 12 | 1 |", "second repo row mismatch")
-		assert.Contains(t, detail.Body, "Avg stars: 11715 | Highest: 23418", "summary line mismatch")
+		assert.Equal(t, []Block{
+			// Highest-starred first, with thousands compacted.
+			table([]string{"Repository", "Stars", "PRs"},
+				[]string{"huge/repo", "23.4k", "2"},
+				[]string{"small/repo", "12", "1"},
+			),
+			text("Avg stars: 11715 | Highest: 23418"),
+		}, detail.Blocks, "repo quality detail body mismatch")
 	})
 
 	t.Run("Truncates beyond five repositories", func(t *testing.T) {
@@ -99,7 +103,7 @@ func TestRepoQualityDetail(t *testing.T) {
 
 		detail := (&RepoQuality{}).Detail(c, testConfig())
 
-		assert.Contains(t, detail.Body, "_...and 2 more repositories_", "truncation note missing")
+		assert.Equal(t, note("...and 2 more repositories"), detail.Blocks[1], "truncation note missing")
 	})
 
 	t.Run("Empty data scenario", func(t *testing.T) {
