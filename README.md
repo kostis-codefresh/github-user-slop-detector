@@ -95,8 +95,17 @@ GH_TOKEN=$(gh auth token) ./contributor-report --details failed octocat
 GH_TOKEN=$(gh auth token) go run . octocat
 ```
 
-The report goes to stdout, so it pipes cleanly into a file, a pager or `gh pr comment`. Progress and warnings go to
-stderr.
+The report is written to `report.md` in the working directory. Stdout carries a numbered progress line per step, so
+you can watch what the run is doing:
+
+```
+step  1/16  Analysis Window ........... done (12 months, from 2025-09-11)
+step  2/16  Fetch GitHub Activity ..... done (0 PRs, 7 comments, 0 issues, 0 reviews)
+step  3/16  PR Merge Rate ............. done (0%, failed)
+...
+step 12/16  Repo History Merge Rate ... skipped (not applicable)
+step 16/16  Render Report ............. done (report.md)
+```
 
 ### Exit codes
 
@@ -136,8 +145,8 @@ When you run it, the tool will:
 2. **📡 Fetch the contributor's activity**: one GraphQL query for the profile, pull requests, issue comments, opened
    issues and contribution calendar, paginated up to 500 PRs and 500 comments
 3. **✅ Evaluate every metric**: thirteen independent checks over the fetched data, plus four spam heuristics
-4. **📊 Render the report**: a markdown document on stdout, with the metric table, the detail blocks and any
-   recommendations
+4. **📊 Render the report**: a markdown document written to `report.md`, with the metric table, the detail blocks and
+   any recommendations
 5. **🚪 Exit accordingly**: non-zero when a required metric did not pass
 
 ## Project layout

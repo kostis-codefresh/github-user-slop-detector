@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kkp/contributor-report/pkg/analysis"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/analysis"
 )
 
 // SuspiciousPatterns reports the spam heuristics that fired. Critical findings

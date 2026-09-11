@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kkp/contributor-report/pkg/analysis"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/analysis"
 )
 
 // Reaction contents GitHub reports, split into the buckets the report cares

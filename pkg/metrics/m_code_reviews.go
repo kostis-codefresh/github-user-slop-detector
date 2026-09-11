@@ -4,7 +4,7 @@ package metrics
 import (
 	"fmt"
 
-	"github.com/kkp/contributor-report/pkg/analysis"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/analysis"
 )
 
 // CodeReviews counts reviews the contributor gave to others' pull requests.

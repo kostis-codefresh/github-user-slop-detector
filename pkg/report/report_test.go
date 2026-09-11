@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kkp/contributor-report/pkg/metrics"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/metrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

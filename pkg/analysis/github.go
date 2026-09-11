@@ -96,8 +96,6 @@ func (cl *Client) Fetch(ctx context.Context, username string, since time.Time) (
 	}
 	c.PullRequests = kept
 
-	log.Printf("Fetcher -> %s: %d PRs, %d comments, %d issues, %d reviews",
-		username, len(c.PullRequests), len(c.IssueComments), len(c.Issues), c.ReviewsGiven)
 	return c, nil
 }
 

@@ -4,7 +4,7 @@ package metrics
 import (
 	"fmt"
 
-	"github.com/kkp/contributor-report/pkg/analysis"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/analysis"
 )
 
 // Profile scoring weights, out of 100. Followers and repositories are scored in

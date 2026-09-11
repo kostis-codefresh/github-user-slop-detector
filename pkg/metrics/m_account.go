@@ -6,7 +6,7 @@ package metrics
 import (
 	"fmt"
 
-	"github.com/kkp/contributor-report/pkg/analysis"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/analysis"
 )
 
 // accountDetail is the <details> block shared by both account metrics.

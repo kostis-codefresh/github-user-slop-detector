@@ -3,7 +3,7 @@ package metrics
 import (
 	"time"
 
-	"github.com/kkp/contributor-report/pkg/analysis"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/analysis"
 )
 
 // Fixtures for the metric tests. Every metric is a pure function of a

@@ -3,7 +3,8 @@ package metrics
 import (
 	"time"
 
-	"github.com/kkp/contributor-report/pkg/analysis"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/analysis"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/progress"
 )
 
 // docsBaseURL is where the upstream metric documentation is published. Metric
@@ -108,8 +109,9 @@ type Report struct {
 	WindowEnd       time.Time
 }
 
-// Evaluate runs every registered metric and assembles the report.
-func Evaluate(c *analysis.Contributor, cfg Config) Report {
+// Evaluate runs every registered metric and assembles the report. prog reports
+// one progress step per metric and may be nil, which is how the tests run.
+func Evaluate(c *analysis.Contributor, cfg Config, prog *progress.Stepper) Report {
 	registry := NewRegistry()
 
 	report := Report{
@@ -126,12 +128,15 @@ func Evaluate(c *analysis.Contributor, cfg Config) Report {
 
 	for _, metric := range registry {
 		meta := metric.Metadata(cfg)
+		prog.Step(meta.Name)
 		result := metric.Evaluate(c, cfg)
 		report.Evaluations = append(report.Evaluations, Evaluation{Metadata: meta, Result: result})
 
 		if !result.Active {
+			prog.Skip("not applicable")
 			continue
 		}
+		prog.Done(stepDetail(result))
 		dataPoints += result.DataPoints
 		report.TotalCount++
 		if result.Passed {
@@ -163,6 +168,19 @@ func Evaluate(c *analysis.Contributor, cfg Config) Report {
 	report.HasLimitedData = dataPoints < minDataPointsForFullReport
 	report.Recommendations = recommendations(report.Evaluations)
 	return report
+}
+
+// stepDetail summarises a verdict for the progress line. Value is already a
+// formatted cell, and is empty for the metrics that only report a status.
+func stepDetail(result Result) string {
+	status := "passed"
+	if !result.Passed {
+		status = "failed"
+	}
+	if result.Value == "" {
+		return status
+	}
+	return result.Value + ", " + status
 }
 
 // recommendations collects the advice from failed metrics. A critical spam

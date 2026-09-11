@@ -7,7 +7,7 @@ import (
 	"io"
 	"text/template"
 
-	"github.com/kkp/contributor-report/pkg/metrics"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/metrics"
 )
 
 // The template is embedded so the binary needs no files at runtime. It is a

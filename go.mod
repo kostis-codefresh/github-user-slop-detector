@@ -1,4 +1,4 @@
-module github.com/kkp/contributor-report
+module github.com/kostis-codefresh/github-user-slop-detector
 
 go 1.23.0
 

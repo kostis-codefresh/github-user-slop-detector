@@ -12,13 +12,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kkp/contributor-report/pkg/analysis"
-	"github.com/kkp/contributor-report/pkg/metrics"
-	"github.com/kkp/contributor-report/pkg/report"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/analysis"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/metrics"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/progress"
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/report"
 )
 
 // version is overridden at build time with -ldflags "-X main.version=...".
 var version = "dev"
+
+// reportPath is where the markdown report is written, leaving stdout free for
+// the progress lines.
+const reportPath = "report.md"
 
 // Exit codes. Needs-review is kept distinct from an operational failure so the
 // tool can be scripted without conflating "bad contributor" with "broken run".
@@ -95,30 +100,57 @@ func run() int {
 		return exitError
 	}
 
+	// Progress goes to stdout, one numbered step for the window, the fetch,
+	// each metric and the render. Routing the standard logger through it keeps
+	// a retry warning or an error from landing inside an open step line.
+	prog := progress.New(os.Stdout, len(metrics.NewRegistry())+3)
+	log.SetOutput(prog)
+
 	// Step 1 - work out the analysis window
+	prog.Step("Analysis Window")
 	since := analysis.Window(time.Now(), cfg.AnalysisWindow)
+	prog.Done(fmt.Sprintf("%d months, from %s", cfg.AnalysisWindow, since.Format(time.DateOnly)))
 
 	// Step 2 - fetch the contributor's public activity
+	prog.Step("Fetch GitHub Activity")
 	contributor, err := analysis.NewClient(token).Fetch(context.Background(), username, since)
 	if err != nil {
 		log.Print(err)
 		return exitError
 	}
+	prog.Done(fmt.Sprintf("%d PRs, %d comments, %d issues, %d reviews",
+		len(contributor.PullRequests), len(contributor.IssueComments), len(contributor.Issues), contributor.ReviewsGiven))
 
-	// Step 3 - evaluate every metric
-	result := metrics.Evaluate(contributor, cfg)
+	// Step 3 - evaluate every metric, one progress step each
+	result := metrics.Evaluate(contributor, cfg, prog)
 
-	// Step 4 - render the report to stdout
-	if err := report.Write(os.Stdout, result, mode); err != nil {
+	// Step 4 - render the report to its own file, so it never mixes with the
+	// progress lines on stdout
+	prog.Step("Render Report")
+	if err := writeReport(result, mode); err != nil {
 		log.Print(err)
 		return exitError
 	}
+	prog.Done(reportPath)
 
 	// Step 5 - exit non-zero when the required metrics did not pass
 	if !result.Passed {
 		return exitNeedsReview
 	}
 	return exitPassed
+}
+
+// writeReport renders the markdown report into reportPath.
+func writeReport(result metrics.Report, mode report.DetailMode) error {
+	f, err := os.Create(reportPath)
+	if err != nil {
+		return fmt.Errorf("create %s: %w", reportPath, err)
+	}
+	defer f.Close() //nolint:errcheck // Sync below reports the write errors
+	if err := report.Write(f, result, mode); err != nil {
+		return err
+	}
+	return f.Sync()
 }
 
 // splitList parses a comma-separated flag value, dropping empty entries so
