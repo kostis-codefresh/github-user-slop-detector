@@ -21,11 +21,11 @@ against any username.
 ## Example report
 
 The report is a single self-contained HTML file — the stylesheet is inlined, so there is nothing to serve and nothing
-to copy alongside it. Open `report.html` in a browser, or attach it to a ticket as-is. It shows:
+to copy alongside it. Open it in a browser, or attach it to a ticket as-is. It shows:
 
 ```
-✅ Contributor Report
-@jdiegosierra — Passed (12/13 metrics passed)
+✅ @jdiegosierra
+Contributor Report — Passed (12/13 metrics passed)
 
 Metrics
   METRIC                    DESCRIPTION                         VALUE       THRESHOLD    STATUS
@@ -90,8 +90,9 @@ GH_TOKEN=$(gh auth token) ./contributor-report --details failed octocat
 GH_TOKEN=$(gh auth token) go run . octocat
 ```
 
-The report is written to `report.html` in the working directory. Stdout carries a numbered progress line per step, so
-you can watch what the run is doing:
+The report is written to `<username>.html` in the working directory — `octocat.html` for the runs above — so reports
+for different users never overwrite each other. Stdout carries a numbered progress line per step, so you can watch
+what the run is doing:
 
 ```
 step  1/16  Analysis Window ........... done (12 months, from 2025-09-11)
@@ -99,7 +100,7 @@ step  2/16  Fetch GitHub Activity ..... done (0 PRs, 7 comments, 0 issues, 0 rev
 step  3/16  PR Merge Rate ............. done (0%, failed)
 ...
 step 12/16  Repo History Merge Rate ... skipped (not applicable)
-step 16/16  Render Report ............. done (report.html)
+step 16/16  Render Report ............. done (octocat.html)
 ```
 
 ### Exit codes
@@ -140,7 +141,7 @@ When you run it, the tool will:
 2. **📡 Fetch the contributor's activity**: one GraphQL query for the profile, pull requests, issue comments, opened
    issues and contribution calendar, paginated up to 500 PRs and 500 comments
 3. **✅ Evaluate every metric**: thirteen independent checks over the fetched data, plus four spam heuristics
-4. **📊 Render the report**: a self-contained HTML document written to `report.html`, with the metric table, the
+4. **📊 Render the report**: a self-contained HTML document written to `<username>.html`, with the metric table, the
    detail blocks and any recommendations
 5. **🚪 Exit accordingly**: non-zero when a required metric did not pass
 

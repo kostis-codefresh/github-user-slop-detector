@@ -21,9 +21,11 @@ import (
 // version is overridden at build time with -ldflags "-X main.version=...".
 var version = "dev"
 
-// reportPath is where the HTML report is written, leaving stdout free for
-// the progress lines.
-const reportPath = "report.html"
+// reportPath is where the HTML report is written, leaving stdout free for the
+// progress lines. It is named after the login GitHub returned rather than the
+// argument as typed, so the file matches the name the report itself shows and
+// cannot contain a path separator.
+func reportPath(login string) string { return login + ".html" }
 
 // Exit codes. Needs-review is kept distinct from an operational failure so the
 // tool can be scripted without conflating "bad contributor" with "broken run".
@@ -127,11 +129,12 @@ func run() int {
 	// Step 4 - render the report to its own file, so it never mixes with the
 	// progress lines on stdout
 	prog.Step("Render Report")
-	if err := writeReport(result, mode); err != nil {
+	path := reportPath(contributor.Login)
+	if err := writeReport(path, result, mode); err != nil {
 		log.Print(err)
 		return exitError
 	}
-	prog.Done(reportPath)
+	prog.Done(path)
 
 	// Step 5 - exit non-zero when the required metrics did not pass
 	if !result.Passed {
@@ -140,11 +143,11 @@ func run() int {
 	return exitPassed
 }
 
-// writeReport renders the HTML report into reportPath.
-func writeReport(result metrics.Report, mode report.DetailMode) error {
-	f, err := os.Create(reportPath)
+// writeReport renders the HTML report into path.
+func writeReport(path string, result metrics.Report, mode report.DetailMode) error {
+	f, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("create %s: %w", reportPath, err)
+		return fmt.Errorf("create %s: %w", path, err)
 	}
 	defer f.Close() //nolint:errcheck // Sync below reports the write errors
 	if err := report.Write(f, result, mode); err != nil {

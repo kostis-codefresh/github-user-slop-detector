@@ -356,8 +356,8 @@ footer {
 </style>
 </head>
 <body>
-<h1>{{if eq .StatusClass "passed"}}✅{{else}}⚠️{{end}} Contributor Report</h1>
-<p class="report-info">@{{.Username}}</p>
+<h1>{{if eq .StatusClass "passed"}}✅{{else}}⚠️{{end}} @{{.Username}}</h1>
+<p class="report-info">Contributor Report</p>
 
 <section class="report">
 <p class="verdict verdict-{{.StatusClass}}">{{.StatusText}} ({{.PassedCount}}/{{.TotalCount}} metrics passed)</p>
