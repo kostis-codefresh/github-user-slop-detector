@@ -73,12 +73,14 @@ func (m *IssueEngagement) Detail(c *analysis.Contributor, _ Config) Detail {
 	stats := collectIssues(c)
 	if stats.created == 0 {
 		return Detail{
-			Summary: "💬 No issues created",
+			Icon:    IconIssues,
+			Summary: "No issues created",
 			Blocks:  []Block{text("No issues found in the analysis window.")},
 		}
 	}
 	return Detail{
-		Summary: fmt.Sprintf("💬 %d issue%s with engagement", stats.engaged(), plural(stats.engaged())),
+		Icon:    IconIssues,
+		Summary: fmt.Sprintf("%d issue%s with engagement", stats.engaged(), plural(stats.engaged())),
 		Blocks: []Block{list(
 			fmt.Sprintf("Issues created: %d", stats.created),
 			fmt.Sprintf("With comments from others: %d", stats.withComments),

@@ -140,7 +140,8 @@ func TestAccountDetail(t *testing.T) {
 
 	detail := (&AccountAge{}).Detail(c, testConfig())
 
-	assert.Equal(t, "📅 Account: 3261 days old", detail.Summary, "summary mismatch")
+	assert.Equal(t, IconAccount, detail.Icon, "icon mismatch")
+	assert.Equal(t, "Account: 3261 days old", detail.Summary, "summary mismatch")
 	require.Len(t, detail.Blocks, 1, "the account detail is a single bullet list")
 	// The created date is derived from the clock, so only the lines that do not
 	// move with it are pinned.

@@ -18,12 +18,14 @@ func (repoHistoryDetail) Detail(c *analysis.Contributor, cfg Config) Detail {
 	history := collectRepoHistory(c, cfg.Repo)
 	if history.firstTime() {
 		return Detail{
-			Summary: "📁 First-time contributor",
+			Icon:    IconHistory,
+			Summary: "First-time contributor",
 			Blocks:  []Block{text("Repository: "+history.repo, "This is a first contribution to this repository.")},
 		}
 	}
 	return Detail{
-		Summary: fmt.Sprintf("📁 %d previous PR%s in this repo", history.total, plural(history.total)),
+		Icon:    IconHistory,
+		Summary: fmt.Sprintf("%d previous PR%s in this repo", history.total, plural(history.total)),
 		Blocks: []Block{list(
 			"Repository: "+history.repo,
 			fmt.Sprintf("Merged: %d", history.merged),

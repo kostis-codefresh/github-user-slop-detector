@@ -46,7 +46,8 @@ func (m *SuspiciousPatterns) DetailGroup() string { return "suspiciousPatterns" 
 func (m *SuspiciousPatterns) Detail(c *analysis.Contributor, cfg Config) Detail {
 	if !cfg.SpamDetection {
 		return Detail{
-			Summary: "➖ Spam detection disabled",
+			Icon:    IconDisabled,
+			Summary: "Spam detection disabled",
 			Blocks:  []Block{text("Run without --spam-detection=false to enable.")},
 		}
 	}
@@ -54,7 +55,8 @@ func (m *SuspiciousPatterns) Detail(c *analysis.Contributor, cfg Config) Detail 
 	detections := detectAll(c, cfg)
 	if len(detections) == 0 {
 		return Detail{
-			Summary: "✅ No suspicious patterns detected",
+			Icon:    IconClean,
+			Summary: "No suspicious patterns detected",
 			Blocks:  []Block{text("Activity appears normal.")},
 		}
 	}
@@ -70,7 +72,7 @@ func (m *SuspiciousPatterns) Detail(c *analysis.Contributor, cfg Config) Detail 
 
 	var blocks []Block
 	for _, detection := range detections {
-		heading := fmt.Sprintf("%s %s: %s", severityIcon(detection.Severity), detection.Severity, detection.Type)
+		heading := fmt.Sprintf("%s: %s", detection.Severity, detection.Type)
 		blocks = append(blocks, para(Line{Label: heading}, Line{Text: detection.Description}))
 
 		items := make([]string, 0, len(detection.Evidence))
@@ -81,7 +83,8 @@ func (m *SuspiciousPatterns) Detail(c *analysis.Contributor, cfg Config) Detail 
 	}
 
 	return Detail{
-		Summary: fmt.Sprintf("🚨 %d pattern%s detected (%s)",
+		Icon: IconAlert,
+		Summary: fmt.Sprintf("%d pattern%s detected (%s)",
 			len(detections), plural(len(detections)), strings.Join(parts, ", ")),
 		Blocks: blocks,
 	}
@@ -96,11 +99,4 @@ func splitBySeverity(detections []Detection) (critical, warnings []Detection) {
 		warnings = append(warnings, detection)
 	}
 	return critical, warnings
-}
-
-func severityIcon(s Severity) string {
-	if s == SeverityCritical {
-		return "🔴"
-	}
-	return "🟡"
 }

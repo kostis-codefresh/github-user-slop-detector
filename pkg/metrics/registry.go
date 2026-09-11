@@ -82,6 +82,7 @@ type Evaluation struct {
 // DetailSection is one rendered <details> section.
 type DetailSection struct {
 	Group   string
+	Icon    string
 	Summary string
 	Blocks  []Block
 	Failed  bool //true when any metric in the group failed
@@ -151,6 +152,7 @@ func Evaluate(c *analysis.Contributor, cfg Config, prog *progress.Stepper) Repor
 		groupIndex[group] = len(report.Details)
 		report.Details = append(report.Details, DetailSection{
 			Group:   group,
+			Icon:    detail.Icon,
 			Summary: detail.Summary,
 			Blocks:  detail.Blocks,
 			Failed:  !result.Passed,

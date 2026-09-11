@@ -207,6 +207,25 @@ summary:hover {
   background-color: #f1f3f4;
 }
 
+ 
+ 
+summary::before {
+  margin-right: 0.4rem;
+}
+
+.icon-prs::before { content: "📊"; }
+.icon-repos::before { content: "📊"; }
+.icon-reactions::before { content: "👍"; }
+.icon-account::before { content: "📅"; }
+.icon-issues::before { content: "💬"; }
+.icon-reviews::before { content: "👀"; }
+.icon-mergers::before { content: "👥"; }
+.icon-history::before { content: "📁"; }
+.icon-profile::before { content: "📝"; }
+.icon-alert::before { content: "🚨"; }
+.icon-clean::before { content: "✅"; }
+.icon-disabled::before { content: "➖"; }
+
 details[open] summary {
   border-bottom: 1px solid #e9ecef;
   border-radius: 4px 4px 0 0;
@@ -252,6 +271,15 @@ details[open] summary {
 
 .detail-body em {
   color: #6c757d;
+}
+
+ 
+.tick-yes {
+  color: #28a745;
+}
+
+.tick-no {
+  color: #dc3545;
 }
 
 .recommendations {
@@ -353,7 +381,7 @@ footer {
 
 <h2>Metric Details</h2>
 <details class="failed">
-<summary>📊 1 quality repo found</summary>
+<summary class="icon-repos">1 quality repo found</summary>
 <div class="detail-body">
 <table>
 <thead>

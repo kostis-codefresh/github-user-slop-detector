@@ -76,7 +76,8 @@ func TestPRMergeRateDetail(t *testing.T) {
 
 		detail := (&PRMergeRate{}).Detail(c, testConfig())
 
-		assert.Equal(t, "📊 50% merge rate (1/3 PRs)", detail.Summary, "summary mismatch")
+		assert.Equal(t, IconPRs, detail.Icon, "icon mismatch")
+		assert.Equal(t, "50% merge rate (1/3 PRs)", detail.Summary, "summary mismatch")
 		assert.Equal(t, []Block{list(
 			"Merged: 1",
 			"Closed without merge: 1",
@@ -89,7 +90,7 @@ func TestPRMergeRateDetail(t *testing.T) {
 	t.Run("Empty data scenario", func(t *testing.T) {
 		detail := (&PRMergeRate{}).Detail(contributor(), testConfig())
 
-		assert.Equal(t, "📊 No pull requests found", detail.Summary, "empty summary mismatch")
+		assert.Equal(t, "No pull requests found", detail.Summary, "empty summary mismatch")
 		assert.Equal(t, []Block{text("No PRs found in the analysis window.")}, detail.Blocks,
 			"empty body should be one paragraph, not a breakdown")
 	})

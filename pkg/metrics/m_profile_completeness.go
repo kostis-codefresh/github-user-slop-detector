@@ -113,13 +113,14 @@ func (m *ProfileCompleteness) Detail(c *analysis.Contributor, _ Config) Detail {
 		company = companyPoints
 	}
 	return Detail{
-		Summary: fmt.Sprintf("📝 Score: %d/100", profileScore(c)),
+		Icon:    IconProfile,
+		Summary: fmt.Sprintf("Score: %d/100", profileScore(c)),
 		Blocks: []Block{table(
 			[]string{"Component", "Status", "Points"},
 			[]string{"Followers", count(c.Followers), fmt.Sprintf("+%d/40", followerPoints(c.Followers))},
 			[]string{"Public repos", count(c.PublicRepos), fmt.Sprintf("+%d/20", repoPoints(c.PublicRepos))},
-			[]string{"Bio", checkmark(c.Bio != ""), fmt.Sprintf("+%d/20", bio)},
-			[]string{"Company", checkmark(c.Company != ""), fmt.Sprintf("+%d/20", company)},
+			[]string{"Bio", yesNo(c.Bio != ""), fmt.Sprintf("+%d/20", bio)},
+			[]string{"Company", yesNo(c.Company != ""), fmt.Sprintf("+%d/20", company)},
 		)},
 	}
 }

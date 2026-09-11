@@ -47,7 +47,8 @@ func (m *PRMergeRate) Detail(c *analysis.Contributor, _ Config) Detail {
 	stats := collectPRStats(c.PullRequests)
 	if stats.total == 0 {
 		return Detail{
-			Summary: "📊 No pull requests found",
+			Icon:    IconPRs,
+			Summary: "No pull requests found",
 			Blocks:  []Block{text("No PRs found in the analysis window.")},
 		}
 	}
@@ -62,7 +63,8 @@ func (m *PRMergeRate) Detail(c *analysis.Contributor, _ Config) Detail {
 		items = append(items, fmt.Sprintf("Very short PRs (<10 lines): %d", stats.veryShort))
 	}
 	return Detail{
-		Summary: fmt.Sprintf("📊 %s merge rate (%d/%d PRs)", pct(stats.mergeRate()), stats.merged, stats.total),
+		Icon:    IconPRs,
+		Summary: fmt.Sprintf("%s merge rate (%d/%d PRs)", pct(stats.mergeRate()), stats.merged, stats.total),
 		Blocks:  []Block{list(items...)},
 	}
 }

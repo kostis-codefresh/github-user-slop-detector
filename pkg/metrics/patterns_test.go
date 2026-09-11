@@ -192,10 +192,10 @@ func TestSuspiciousPatternsDetail(t *testing.T) {
 
 		detail := (&SuspiciousPatterns{}).Detail(c, testConfig())
 
-		assert.Contains(t, detail.Summary, "🚨", "the summary should flag the findings")
+		assert.Equal(t, IconAlert, detail.Icon, "the detail should be flagged as an alert")
 		assert.Contains(t, detail.Summary, "critical", "the summary should count criticals")
 		require.NotEmpty(t, detail.Blocks, "a detected pattern should produce a body")
-		assert.Equal(t, "🔴 CRITICAL: SPAM_PATTERN", detail.Blocks[0].Lines[0].Label,
+		assert.Equal(t, "CRITICAL: SPAM_PATTERN", detail.Blocks[0].Lines[0].Label,
 			"the critical finding should be headed")
 		assert.Contains(t, detail.Blocks[1].Lines, Line{Text: "accountAgeDays: 10"},
 			"evidence should be listed")
@@ -206,7 +206,8 @@ func TestSuspiciousPatternsDetail(t *testing.T) {
 
 		detail := (&SuspiciousPatterns{}).Detail(c, testConfig())
 
-		assert.Equal(t, "✅ No suspicious patterns detected", detail.Summary, "clean summary mismatch")
+		assert.Equal(t, IconClean, detail.Icon, "clean icon mismatch")
+		assert.Equal(t, "No suspicious patterns detected", detail.Summary, "clean summary mismatch")
 		assert.Equal(t, []Block{text("Activity appears normal.")}, detail.Blocks, "clean body mismatch")
 	})
 }

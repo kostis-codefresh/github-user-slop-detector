@@ -173,7 +173,8 @@ func TestRepoHistoryDetail(t *testing.T) {
 
 		detail := (&RepoHistoryMergeRate{}).Detail(c, cfg)
 
-		assert.Equal(t, "📁 3 previous PRs in this repo", detail.Summary, "summary mismatch")
+		assert.Equal(t, IconHistory, detail.Icon, "icon mismatch")
+		assert.Equal(t, "3 previous PRs in this repo", detail.Summary, "summary mismatch")
 		assert.Equal(t, []Block{list(
 			"Repository: org/project",
 			"Merged: 2",
@@ -185,7 +186,7 @@ func TestRepoHistoryDetail(t *testing.T) {
 	t.Run("First-time contributor scenario", func(t *testing.T) {
 		detail := (&RepoHistoryMinPRs{}).Detail(contributor(), cfg)
 
-		assert.Equal(t, "📁 First-time contributor", detail.Summary, "first-timer summary mismatch")
+		assert.Equal(t, "First-time contributor", detail.Summary, "first-timer summary mismatch")
 		assert.Equal(t, []Block{text(
 			"Repository: org/project",
 			"This is a first contribution to this repository.",

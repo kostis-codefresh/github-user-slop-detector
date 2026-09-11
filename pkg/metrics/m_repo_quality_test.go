@@ -83,7 +83,8 @@ func TestRepoQualityDetail(t *testing.T) {
 
 		detail := (&RepoQuality{}).Detail(c, testConfig())
 
-		assert.Equal(t, "📊 1 quality repo found", detail.Summary, "summary mismatch")
+		assert.Equal(t, IconRepos, detail.Icon, "icon mismatch")
+		assert.Equal(t, "1 quality repo found", detail.Summary, "summary mismatch")
 		assert.Equal(t, []Block{
 			// Highest-starred first, with thousands compacted.
 			table([]string{"Repository", "Stars", "PRs"},
@@ -109,6 +110,6 @@ func TestRepoQualityDetail(t *testing.T) {
 	t.Run("Empty data scenario", func(t *testing.T) {
 		detail := (&RepoQuality{}).Detail(contributor(), testConfig())
 
-		assert.Equal(t, "📊 No repository contributions found", detail.Summary, "empty summary mismatch")
+		assert.Equal(t, "No repository contributions found", detail.Summary, "empty summary mismatch")
 	})
 }

@@ -3,7 +3,7 @@
 <tr>{{range .Head}}<th>{{.}}</th>{{end}}</tr>
 </thead>
 <tbody>
-{{range .Rows}}<tr>{{range .}}<td>{{.}}</td>{{end}}</tr>
+{{range .Rows}}<tr>{{range .}}<td>{{template "cell" .}}</td>{{end}}</tr>
 {{end}}</tbody>
 </table>
 {{else if eq .Kind "list"}}<ul>
@@ -14,6 +14,9 @@
 {{end}}{{template "line" $l}}{{end}}</p>
 {{end}}{{end}}{{end -}}
 {{define "line"}}{{if .Label}}<strong>{{.Label}}</strong>{{if .Text}} {{end}}{{end}}{{.Text}}{{end -}}
+{{/* "yes" and "no" are the only cell values that are not shown verbatim: metrics
+     emit the keyword and the tick is chosen here. See yesNo in pkg/metrics. */ -}}
+{{define "cell"}}{{if eq . "yes"}}<span class="tick-yes">✅</span>{{else if eq . "no"}}<span class="tick-no">❌</span>{{else}}{{.}}{{end}}{{end -}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -223,6 +226,26 @@ summary:hover {
   background-color: #f1f3f4;
 }
 
+/* The detail icons are decoration, so the glyphs live here rather than in the
+   summary text. pkg/metrics picks the name; this picks the picture. */
+/* A summary with no icon class generates no ::before box, so this is inert there */
+summary::before {
+  margin-right: 0.4rem;
+}
+
+.icon-prs::before { content: "📊"; }
+.icon-repos::before { content: "📊"; }
+.icon-reactions::before { content: "👍"; }
+.icon-account::before { content: "📅"; }
+.icon-issues::before { content: "💬"; }
+.icon-reviews::before { content: "👀"; }
+.icon-mergers::before { content: "👥"; }
+.icon-history::before { content: "📁"; }
+.icon-profile::before { content: "📝"; }
+.icon-alert::before { content: "🚨"; }
+.icon-clean::before { content: "✅"; }
+.icon-disabled::before { content: "➖"; }
+
 details[open] summary {
   border-bottom: 1px solid #e9ecef;
   border-radius: 4px 4px 0 0;
@@ -268,6 +291,15 @@ details[open] summary {
 
 .detail-body em {
   color: #6c757d;
+}
+
+/* The tick and cross the "cell" template puts in a boolean table cell */
+.tick-yes {
+  color: #28a745;
+}
+
+.tick-no {
+  color: #dc3545;
 }
 
 .recommendations {
@@ -324,7 +356,7 @@ footer {
 </style>
 </head>
 <body>
-<h1>{{.StatusEmoji}} Contributor Report</h1>
+<h1>{{if eq .StatusClass "passed"}}✅{{else}}⚠️{{end}} Contributor Report</h1>
 <p class="report-info">@{{.Username}}</p>
 
 <section class="report">
@@ -343,14 +375,14 @@ footer {
 <td class="metric-description">{{.Description}}</td>
 <td class="metric-value">{{.Value}}</td>
 <td class="metric-threshold">{{.Threshold}}</td>
-<td class="metric-status">{{.Status}}</td>
+<td class="metric-status">{{if eq .StatusClass "passed"}}✅{{else if eq .StatusClass "failed"}}❌{{else}}—{{end}}</td>
 </tr>
 {{end}}</tbody>
 </table>
 {{if .Details}}
 <h2>Metric Details</h2>
 {{range .Details}}<details{{if .Failed}} class="failed"{{end}}>
-<summary>{{.Summary}}</summary>
+<summary class="icon-{{.Icon}}">{{.Summary}}</summary>
 <div class="detail-body">
 {{template "blocks" .Blocks}}</div>
 </details>

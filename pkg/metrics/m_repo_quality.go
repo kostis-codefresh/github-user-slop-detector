@@ -45,7 +45,8 @@ func (m *RepoQuality) Detail(c *analysis.Contributor, cfg Config) Detail {
 	repos := c.TopReposByStars()
 	if len(repos) == 0 {
 		return Detail{
-			Summary: "📊 No repository contributions found",
+			Icon:    IconRepos,
+			Summary: "No repository contributions found",
 			Blocks:  []Block{text("No merged PRs found in the analysis window.")},
 		}
 	}
@@ -77,7 +78,8 @@ func (m *RepoQuality) Detail(c *analysis.Contributor, cfg Config) Detail {
 	blocks = append(blocks, text(fmt.Sprintf("Avg stars: %d | Highest: %d", totalStars/len(repos), highest)))
 
 	return Detail{
-		Summary: fmt.Sprintf("📊 %d quality repo%s found", quality, plural(quality)),
+		Icon:    IconRepos,
+		Summary: fmt.Sprintf("%d quality repo%s found", quality, plural(quality)),
 		Blocks:  blocks,
 	}
 }

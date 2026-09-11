@@ -80,11 +80,12 @@ func TestProfileCompletenessDetail(t *testing.T) {
 
 	detail := (&ProfileCompleteness{}).Detail(c, testConfig())
 
-	assert.Equal(t, "📝 Score: 70/100", detail.Summary, "summary mismatch")
+	assert.Equal(t, IconProfile, detail.Icon, "icon mismatch")
+	assert.Equal(t, "Score: 70/100", detail.Summary, "summary mismatch")
 	assert.Equal(t, []Block{table([]string{"Component", "Status", "Points"},
 		[]string{"Followers", "26", "+30/40"},
 		[]string{"Public repos", "13", "+20/20"},
-		[]string{"Bio", "✅", "+20/20"},
-		[]string{"Company", "❌", "+0/20"},
+		[]string{"Bio", "yes", "+20/20"},
+		[]string{"Company", "no", "+0/20"},
 	)}, detail.Blocks, "profile score table mismatch")
 }

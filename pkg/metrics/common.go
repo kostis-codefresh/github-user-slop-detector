@@ -92,12 +92,14 @@ func table(head []string, rows ...[]string) Block {
 	return Block{Kind: KindTable, Head: head, Rows: rows}
 }
 
-// checkmark renders a boolean as the tick/cross used in the profile table.
-func checkmark(ok bool) string {
+// yesNo renders a boolean profile-table cell. These two keywords are the only
+// cell values the report's template reinterprets — it turns them into ticks —
+// so no other cell may produce them.
+func yesNo(ok bool) string {
 	if ok {
-		return "✅"
+		return "yes"
 	}
-	return "❌"
+	return "no"
 }
 
 // prStats are the PR counts several metrics and patterns share.

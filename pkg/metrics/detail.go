@@ -4,9 +4,28 @@ package metrics
 // content under it. The content is structured rather than pre-rendered markup
 // so that pkg/report decides the markup and html/template does the escaping.
 type Detail struct {
+	Icon    string
 	Summary string
 	Blocks  []Block
 }
+
+// The icons a detail can be shown with. These are names, not glyphs: the
+// report's stylesheet keys its .icon-<name> rules on them, so the choice of
+// picture is the template's and never Go's.
+const (
+	IconPRs       = "prs"       //PR Merge Rate
+	IconRepos     = "repos"     //Repo Quality
+	IconReactions = "reactions" //both reaction metrics
+	IconAccount   = "account"   //account age and activity consistency
+	IconIssues    = "issues"    //Issue Engagement
+	IconReviews   = "reviews"   //Code Reviews
+	IconMergers   = "mergers"   //Merger Diversity
+	IconHistory   = "history"   //both repo-history metrics
+	IconProfile   = "profile"   //Profile Completeness
+	IconAlert     = "alert"     //spam findings present
+	IconClean     = "clean"     //spam detection found nothing
+	IconDisabled  = "disabled"  //spam detection switched off
+)
 
 // BlockKind selects how pkg/report renders a block.
 type BlockKind string
@@ -28,7 +47,7 @@ type Block struct {
 }
 
 // Line is one paragraph line or list item. Label, when set, is emphasised
-// ahead of Text: "Mergers: @a, @b", "🔴 CRITICAL: SPAM_PATTERN".
+// ahead of Text: "Mergers: @a, @b", "CRITICAL: SPAM_PATTERN".
 type Line struct {
 	Label string
 	Text  string

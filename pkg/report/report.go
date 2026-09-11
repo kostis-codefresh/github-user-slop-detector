@@ -45,12 +45,12 @@ type row struct {
 	Description string
 	Value       string
 	Threshold   string
-	Status      string
-	StatusClass string //CSS class that tints the row
+	StatusClass string //CSS class that tints the row and picks its verdict mark
 }
 
 // detail is one rendered <details> block.
 type detail struct {
+	Icon    string
 	Summary string
 	Blocks  []metrics.Block
 	Failed  bool
@@ -58,7 +58,6 @@ type detail struct {
 
 // view is the flattened shape the template consumes.
 type view struct {
-	StatusEmoji     string
 	StatusText      string
 	StatusClass     string
 	Username        string
@@ -77,7 +76,6 @@ type view struct {
 // Write renders the report as HTML.
 func Write(w io.Writer, r metrics.Report, mode DetailMode) error {
 	v := view{
-		StatusEmoji:    "⚠️",
 		StatusText:     "Needs Review",
 		StatusClass:    "needs-review",
 		Username:       r.Username,
@@ -93,7 +91,7 @@ func Write(w io.Writer, r metrics.Report, mode DetailMode) error {
 		WindowEnd:       r.WindowEnd.Format("2006-01-02"),
 	}
 	if r.Passed {
-		v.StatusEmoji, v.StatusText, v.StatusClass = "✅", "Passed", "passed"
+		v.StatusText, v.StatusClass = "Passed", "passed"
 	}
 
 	for _, e := range r.Evaluations {
@@ -103,7 +101,6 @@ func Write(w io.Writer, r metrics.Report, mode DetailMode) error {
 			Description: e.Metadata.Description,
 			Value:       cell(e.Result.Value),
 			Threshold:   cell(e.Result.Threshold),
-			Status:      status(e.Result),
 			StatusClass: statusClass(e.Result),
 		})
 	}
@@ -118,6 +115,7 @@ func Write(w io.Writer, r metrics.Report, mode DetailMode) error {
 			continue
 		}
 		v.Details = append(v.Details, detail{
+			Icon:    block.Icon,
 			Summary: block.Summary,
 			Blocks:  block.Blocks,
 			Failed:  block.Failed,
@@ -135,21 +133,9 @@ func cell(s string) string {
 	return s
 }
 
-// status is the table's verdict column. Inactive metrics get a dash rather
-// than a tick or a cross: they were never evaluated.
-func status(r metrics.Result) string {
-	switch {
-	case !r.Active:
-		return "—"
-	case r.Passed:
-		return "✅"
-	default:
-		return "❌"
-	}
-}
-
-// statusClass is the same verdict as a CSS class, so the row is tinted as well
-// as marked.
+// statusClass is the verdict as a CSS class. It both tints the row and tells
+// the template which mark to put in the status column; an inactive metric was
+// never evaluated, so it gets neither a tick nor a cross.
 func statusClass(r metrics.Result) string {
 	switch {
 	case !r.Active:

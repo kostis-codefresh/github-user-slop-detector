@@ -60,7 +60,8 @@ func (m *MergerDiversity) Detail(c *analysis.Contributor, _ Config) Detail {
 	stats := collectMergers(c)
 	if stats.totalMerged == 0 {
 		return Detail{
-			Summary: "👥 No merged PRs",
+			Icon:    IconMergers,
+			Summary: "No merged PRs",
 			Blocks:  []Block{text("No merged PRs found in the analysis window.")},
 		}
 	}
@@ -87,11 +88,12 @@ func (m *MergerDiversity) Detail(c *analysis.Contributor, _ Config) Detail {
 	blocks = append(blocks, list(items...))
 
 	if stats.onlySelfMergesOnOwnRepos() {
-		blocks = append(blocks, text("⚠️ All merges are self-merges on own repositories"))
+		blocks = append(blocks, text("All merges are self-merges on own repositories"))
 	}
 
 	return Detail{
-		Summary: fmt.Sprintf("👥 %d unique maintainer%s", stats.uniqueMergers, plural(stats.uniqueMergers)),
+		Icon:    IconMergers,
+		Summary: fmt.Sprintf("%d unique maintainer%s", stats.uniqueMergers, plural(stats.uniqueMergers)),
 		Blocks:  blocks,
 	}
 }

@@ -126,7 +126,8 @@ func TestReactionsDetail(t *testing.T) {
 
 		detail := (&PositiveReactions{}).Detail(c, testConfig())
 
-		assert.Equal(t, "👍 2 positive / 1 negative", detail.Summary, "summary mismatch")
+		assert.Equal(t, IconReactions, detail.Icon, "icon mismatch")
+		assert.Equal(t, "2 positive / 1 negative", detail.Summary, "summary mismatch")
 		assert.Equal(t, []Block{list(
 			"Comments analyzed: 1",
 			"Positive reactions: 2",
@@ -139,7 +140,7 @@ func TestReactionsDetail(t *testing.T) {
 	t.Run("Empty data scenario", func(t *testing.T) {
 		detail := (&NegativeReactions{}).Detail(contributor(), testConfig())
 
-		assert.Equal(t, "👍 No comments analyzed", detail.Summary, "empty summary mismatch")
+		assert.Equal(t, "No comments analyzed", detail.Summary, "empty summary mismatch")
 	})
 }
 

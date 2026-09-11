@@ -78,7 +78,8 @@ func TestIssueEngagementDetail(t *testing.T) {
 
 		detail := (&IssueEngagement{}).Detail(c, testConfig())
 
-		assert.Equal(t, "💬 2 issues with engagement", detail.Summary, "summary mismatch")
+		assert.Equal(t, IconIssues, detail.Icon, "icon mismatch")
+		assert.Equal(t, "2 issues with engagement", detail.Summary, "summary mismatch")
 		assert.Equal(t, []Block{list(
 			"Issues created: 3",
 			"With comments from others: 2",
@@ -90,7 +91,7 @@ func TestIssueEngagementDetail(t *testing.T) {
 	t.Run("Empty data scenario", func(t *testing.T) {
 		detail := (&IssueEngagement{}).Detail(contributor(), testConfig())
 
-		assert.Equal(t, "💬 No issues created", detail.Summary, "empty summary mismatch")
+		assert.Equal(t, "No issues created", detail.Summary, "empty summary mismatch")
 		assert.Equal(t, []Block{text("No issues found in the analysis window.")}, detail.Blocks,
 			"empty body mismatch")
 	})

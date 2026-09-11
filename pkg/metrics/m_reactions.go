@@ -18,12 +18,14 @@ func (reactionsDetail) Detail(c *analysis.Contributor, _ Config) Detail {
 	tally := collectReactions(c)
 	if tally.comments == 0 {
 		return Detail{
-			Summary: "👍 No comments analyzed",
+			Icon:    IconReactions,
+			Summary: "No comments analyzed",
 			Blocks:  []Block{text("No comments found in the analysis window.")},
 		}
 	}
 	return Detail{
-		Summary: fmt.Sprintf("👍 %d positive / %d negative", tally.positive, tally.negative),
+		Icon:    IconReactions,
+		Summary: fmt.Sprintf("%d positive / %d negative", tally.positive, tally.negative),
 		Blocks: []Block{list(
 			fmt.Sprintf("Comments analyzed: %d", tally.comments),
 			fmt.Sprintf("Positive reactions: %d", tally.positive),

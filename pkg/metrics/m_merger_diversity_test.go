@@ -110,7 +110,8 @@ func TestMergerDiversityDetail(t *testing.T) {
 
 		detail := (&MergerDiversity{}).Detail(c, testConfig())
 
-		assert.Equal(t, "👥 2 unique maintainers", detail.Summary, "summary mismatch")
+		assert.Equal(t, IconMergers, detail.Icon, "icon mismatch")
+		assert.Equal(t, "2 unique maintainers", detail.Summary, "summary mismatch")
 		assert.Equal(t, []Block{
 			para(Line{Label: "Mergers:", Text: "@octocat, @maintainer-a"}),
 			list(
@@ -129,13 +130,13 @@ func TestMergerDiversityDetail(t *testing.T) {
 
 		detail := (&MergerDiversity{}).Detail(c, testConfig())
 
-		assert.Equal(t, text("⚠️ All merges are self-merges on own repositories"),
+		assert.Equal(t, text("All merges are self-merges on own repositories"),
 			detail.Blocks[len(detail.Blocks)-1], "warning missing")
 	})
 
 	t.Run("Empty data scenario", func(t *testing.T) {
 		detail := (&MergerDiversity{}).Detail(contributor(), testConfig())
 
-		assert.Equal(t, "👥 No merged PRs", detail.Summary, "empty summary mismatch")
+		assert.Equal(t, "No merged PRs", detail.Summary, "empty summary mismatch")
 	})
 }

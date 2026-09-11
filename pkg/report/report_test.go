@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kostis-codefresh/github-user-slop-detector/pkg/analysis"
 	"github.com/kostis-codefresh/github-user-slop-detector/pkg/metrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,7 +51,8 @@ func sampleReport() metrics.Report {
 		Details: []metrics.DetailSection{
 			{
 				Group:   "prMergeRate",
-				Summary: "📊 86% merge rate (25/32 PRs)",
+				Icon:    metrics.IconPRs,
+				Summary: "86% merge rate (25/32 PRs)",
 				Blocks: []metrics.Block{{
 					Kind: metrics.KindList,
 					Lines: []metrics.Line{
@@ -62,7 +64,8 @@ func sampleReport() metrics.Report {
 			},
 			{
 				Group:   "repoQuality",
-				Summary: "📊 1 quality repo found",
+				Icon:    metrics.IconRepos,
+				Summary: "1 quality repo found",
 				Blocks: []metrics.Block{{
 					Kind: metrics.KindTable,
 					Head: []string{"Repository", "Stars", "PRs"},
@@ -183,4 +186,35 @@ func assertGolden(t *testing.T, name, got string) {
 	want, err := os.ReadFile(path)
 	require.NoError(t, err, "missing golden file %s; run: go test ./pkg/report -update", name)
 	assert.Equal(t, strings.ReplaceAll(string(want), "\r\n", "\n"), got, "rendered report differs from %s", name)
+}
+
+// The detail icons are chosen in pkg/metrics by name and drawn by the
+// stylesheet, so a new icon whose CSS rule is missing would silently render no
+// glyph at all. Every name must have a rule.
+func TestEveryIconNameHasAStylesheetRule(t *testing.T) {
+	tpl, err := templateFS.ReadFile("templates/report.html.tpl")
+	require.NoError(t, err, "the template should be embedded")
+
+	icons := []string{
+		metrics.IconPRs, metrics.IconRepos, metrics.IconReactions, metrics.IconAccount,
+		metrics.IconIssues, metrics.IconReviews, metrics.IconMergers, metrics.IconHistory,
+		metrics.IconProfile, metrics.IconAlert, metrics.IconClean, metrics.IconDisabled,
+	}
+	for _, icon := range icons {
+		assert.Contains(t, string(tpl), "."+"icon-"+icon+"::before { content:",
+			"icon %q has no glyph in the stylesheet", icon)
+	}
+}
+
+// Each registered metric's detail must name an icon, or its <details> block
+// renders with a bare class and no glyph.
+func TestEveryMetricDetailNamesAnIcon(t *testing.T) {
+	c := &analysis.Contributor{Login: "octocat", CreatedAt: time.Now().AddDate(-3, 0, 0)}
+	cfg := metrics.DefaultConfig()
+	cfg.Repo = "org/project"
+
+	for _, m := range metrics.NewRegistry() {
+		assert.NotEmpty(t, m.Detail(c, cfg).Icon,
+			"metric %q returns a detail with no icon", m.Metadata(cfg).Key)
+	}
 }
