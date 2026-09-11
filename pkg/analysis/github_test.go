@@ -114,32 +114,59 @@ func TestFetch(t *testing.T) {
 }
 
 func TestFetchPaginates(t *testing.T) {
-	// A first page that claims more data, then a page that ends it.
-	first := `{"data":{"user":{"login":"octocat","createdAt":"2020-01-01T00:00:00Z",
-		"followers":{"totalCount":1},"repositories":{"totalCount":1},
-		"pullRequests":{"totalCount":1,"nodes":[{"state":"OPEN","createdAt":"2025-06-01T00:00:00Z",
-		"repository":{"owner":{"login":"org"},"name":"a","stargazerCount":1}}],
-		"pageInfo":{"hasNextPage":true,"endCursor":"CURSOR-1"}},
-		"contributionsCollection":{"contributionCalendar":{"weeks":[]},"pullRequestReviewContributions":{"totalCount":0}},
-		"issueComments":{"totalCount":0,"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}},
-		"issueSearch":{"issueCount":0,"nodes":[]},"rateLimit":{"remaining":100,"resetAt":"2026-01-01T00:00:00Z","used":1}}}`
+	const (
+		profileBody = `{"data":{"user":{"login":"octocat","createdAt":"2020-01-01T00:00:00Z",
+			"followers":{"totalCount":1},"repositories":{"totalCount":1},
+			"contributionsCollection":{"contributionCalendar":{"weeks":[]},
+			"pullRequestReviewContributions":{"totalCount":0}}},
+			"rateLimit":{"remaining":100,"resetAt":"2026-01-01T00:00:00Z","used":1}}}`
 
-	var pages int
+		// A first PR page that claims more data, then a page that ends it.
+		prPage1 = `{"data":{"user":{"login":"octocat","pullRequests":{"totalCount":2,
+			"nodes":[{"state":"OPEN","createdAt":"2025-06-01T00:00:00Z",
+			"repository":{"owner":{"login":"org"},"name":"a","stargazerCount":1}}],
+			"pageInfo":{"hasNextPage":true,"endCursor":"CURSOR-1"}}},
+			"rateLimit":{"remaining":100,"resetAt":"2026-01-01T00:00:00Z","used":1}}}`
+
+		prPage2 = `{"data":{"user":{"login":"octocat","pullRequests":{"totalCount":2,
+			"nodes":[{"state":"OPEN","createdAt":"2025-07-01T00:00:00Z",
+			"repository":{"owner":{"login":"org"},"name":"b","stargazerCount":1}}],
+			"pageInfo":{"hasNextPage":false,"endCursor":""}}},
+			"rateLimit":{"remaining":99,"resetAt":"2026-01-01T00:00:00Z","used":2}}}`
+
+		emptyBody = `{"data":{"user":{"login":"octocat"},"issueSearch":{"issueCount":0,"nodes":[]},
+			"rateLimit":{"remaining":99,"resetAt":"2026-01-01T00:00:00Z","used":2}}}`
+	)
+
+	// Each request now asks for one section, so the stub answers on the @include
+	// flags and the cursor rather than on how many requests it has seen.
+	var prRequests, totalRequests int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		pages++
-		body := first
-		if pages > 1 {
-			// Second page returns one more PR and stops.
-			body = `{"data":{"user":{"login":"octocat","createdAt":"2020-01-01T00:00:00Z",
-				"followers":{"totalCount":1},"repositories":{"totalCount":1},
-				"pullRequests":{"totalCount":1,"nodes":[{"state":"OPEN","createdAt":"2025-07-01T00:00:00Z",
-				"repository":{"owner":{"login":"org"},"name":"b","stargazerCount":1}}],
-				"pageInfo":{"hasNextPage":false,"endCursor":""}},
-				"contributionsCollection":{"contributionCalendar":{"weeks":[]},"pullRequestReviewContributions":{"totalCount":0}},
-				"issueComments":{"totalCount":0,"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}},
-				"issueSearch":{"issueCount":0,"nodes":[]},"rateLimit":{"remaining":99,"resetAt":"2026-01-01T00:00:00Z","used":2}}}`
+		raw, err := io.ReadAll(r.Body)
+		require.NoError(t, err, "could not read the request body")
+		var payload struct {
+			Variables struct {
+				WithProfile bool   `json:"withProfile"`
+				WithPRs     bool   `json:"withPRs"`
+				PRCursor    string `json:"prCursor"`
+			} `json:"variables"`
 		}
-		_, _ = io.WriteString(w, body)
+		require.NoError(t, json.Unmarshal(raw, &payload), "request was not valid JSON")
+
+		totalRequests++
+		switch {
+		case payload.Variables.WithProfile:
+			_, _ = io.WriteString(w, profileBody)
+		case payload.Variables.WithPRs:
+			prRequests++
+			if payload.Variables.PRCursor == "CURSOR-1" {
+				_, _ = io.WriteString(w, prPage2)
+				return
+			}
+			_, _ = io.WriteString(w, prPage1)
+		default:
+			_, _ = io.WriteString(w, emptyBody)
+		}
 	}))
 	defer server.Close()
 
@@ -149,9 +176,33 @@ func TestFetchPaginates(t *testing.T) {
 	c, err := client.Fetch(context.Background(), "octocat", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
 	require.NoError(t, err, "fetching should succeed")
 
-	assert.Equal(t, 2, pages, "the second PR page should have been requested")
+	assert.Equal(t, 2, prRequests, "the second PR page should have been requested")
 	assert.Len(t, c.PullRequests, 2, "PRs from both pages should be kept")
-	assert.Equal(t, 99, c.RateLimit.Remaining, "the budget should come from the last page, not the first")
+	assert.Equal(t, 99, c.RateLimit.Remaining, "the budget should come from the last response, not the first")
+
+	// profile + 2 PR pages + comments + search: the sections are separate requests
+	// so that none of them has to finish inside GitHub's 10s limit together.
+	assert.Equal(t, 5, totalRequests, "each section should be its own request")
+}
+
+// TestFetchRequestsOneSectionPerRequest pins the split itself: a section's
+// @include flag must be on for exactly the request that needs it, otherwise the
+// combined document comes back and the 10s timeout returns.
+func TestFetchRequestsOneSectionPerRequest(t *testing.T) {
+	client, requests := stubAPI(t, readFixture(t, "response.json"))
+
+	_, err := client.Fetch(context.Background(), "octocat", time.Date(2025, 3, 23, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err, "fetching should succeed")
+
+	flags := []string{"withProfile", "withPRs", "withComments", "withSearch"}
+	require.Len(t, *requests, len(flags), "one request per section")
+
+	for i, want := range flags {
+		for _, flag := range flags {
+			assert.Equal(t, flag == want, (*requests)[i][flag],
+				"request %d should set only %s, but %s was %v", i, want, flag, (*requests)[i][flag])
+		}
+	}
 }
 
 // TestFetchStopsOnRateLimit pins the no-retry contract: a rate-limited response
@@ -228,6 +279,79 @@ func TestFetchStopsOnRateLimit(t *testing.T) {
 			assert.Equal(t, 1, calls, "the request must not be retried")
 		})
 	}
+}
+
+// TestFetchStopsOnQueryTimeout pins the split between the two kinds of 5xx: a
+// 502/504 is GitHub giving up on a query that ran past its 10s limit, and each
+// one deducts extra points from the hourly budget, so retrying the same
+// too-expensive document is not worth paying for. Other 5xx stay retryable.
+func TestFetchStopsOnQueryTimeout(t *testing.T) {
+	// The nginx body is what GitHub actually returned in practice; the GraphQL
+	// JSON form is what the docs describe. Both must be reported.
+	timeoutBody := `<html>` + "\n" + `<head><title>502 Bad Gateway</title></head>` + "\n" + `</html>`
+
+	testCases := []struct {
+		name        string
+		status      int
+		expectCalls int
+		expectedErr string
+	}{
+		{
+			name:        "A 502 is a query timeout and is not retried",
+			status:      http.StatusBadGateway,
+			expectCalls: 1,
+			expectedErr: "could not answer the query within its 10s limit (HTTP 502)",
+		},
+		{
+			name:        "A 504 is the same",
+			status:      http.StatusGatewayTimeout,
+			expectCalls: 1,
+			expectedErr: "could not answer the query within its 10s limit (HTTP 504)",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls int
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				calls++
+				w.Header().Set("X-GitHub-Request-Id", "B1A2:3C4D:5E6F")
+				w.WriteHeader(tc.status)
+				_, _ = io.WriteString(w, timeoutBody)
+			}))
+			defer server.Close()
+
+			client := NewClient("test-token")
+			client.Endpoint = server.URL
+
+			_, err := client.Fetch(context.Background(), "octocat", time.Now())
+
+			require.Error(t, err, "the failure should be surfaced")
+			assert.Contains(t, err.Error(), tc.expectedErr, "error message mismatch")
+			assert.Contains(t, err.Error(), "request B1A2:3C4D:5E6F",
+				"the request ID is the only handle GitHub support has on a recurring 5xx")
+			assert.NotContains(t, err.Error(), "\n", "the body should be flattened onto one progress line")
+			assert.Equal(t, tc.expectCalls, calls, "retry count mismatch")
+		})
+	}
+}
+
+// TestDoKeepsOtherServerErrorsRetryable guards the other half of that split. It
+// calls do rather than Fetch so the retry loop's 2s+4s backoff never runs.
+func TestDoKeepsOtherServerErrorsRetryable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	client := NewClient("test-token")
+	client.Endpoint = server.URL
+
+	_, err := client.do(context.Background(), map[string]any{})
+
+	require.Error(t, err, "a 503 should be an error")
+	assert.True(t, isTransient(err), "a 503 is a blip, not a query too expensive to retry")
+	assert.Contains(t, err.Error(), "GitHub returned HTTP 503", "the status should be named")
 }
 
 func TestFetchErrors(t *testing.T) {
