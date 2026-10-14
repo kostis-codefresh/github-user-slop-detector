@@ -31,9 +31,13 @@ var loginPattern = regexp.MustCompile(`^[A-Za-z0-9-]{1,39}$`)
 
 var errInvalidLogin = errors.New("not a valid GitHub username")
 
+// version is overridden at build time with -ldflags "-X main.version=...".
+var version = "dev"
+
 type pageData struct {
 	Reports []metrics.Report
 	Error   string
+	Version string
 }
 
 func newHandler(analyze analyzeFunc) http.Handler {
@@ -67,11 +71,11 @@ func newHandler(analyze analyzeFunc) http.Handler {
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		username := r.FormValue("username")
 		if username == "" {
-			execute(w, "index.html", pageData{Reports: cache.list()})
+			execute(w, "index.html", pageData{Reports: cache.list(), Version: version})
 			return
 		}
-		target := "/" + url.PathEscape(username)
-		// Without htmx the form is a plain GET, and /<username> does the work.
+		target := "/report/" + url.PathEscape(username)
+		// Without htmx the form is a plain GET, and /report/<username> does the work.
 		if r.Header.Get("HX-Request") != "true" {
 			http.Redirect(w, r, target, http.StatusSeeOther)
 			return
@@ -86,11 +90,17 @@ func newHandler(analyze analyzeFunc) http.Handler {
 		}
 		w.Header().Set("HX-Redirect", target)
 	})
+	// Liveness only: it makes no GitHub call, so a GitHub outage does not get
+	// the app restarted by whatever is probing it.
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ok"}` + "\n"))
+	})
 	mux.HandleFunc("GET /img/logo.svg", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "image/svg+xml")
 		_, _ = w.Write(report.Logo)
 	})
-	mux.HandleFunc("GET /{username}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /report/{username}", func(w http.ResponseWriter, r *http.Request) {
 		username := r.PathValue("username")
 		rep, err := lookup(r.Context(), username)
 		switch {

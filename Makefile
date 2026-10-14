@@ -1,14 +1,19 @@
+DIST_DIR=dist
 BIN_NAME=contributor-report
 
 # Get version from git tag or hash, default to "dev"
 VERSION := $(shell git describe --tags --exact-match HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "dev")
 
-contributor-report-build:
-	CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} go build -v -ldflags "-X main.version=$(VERSION)" -o ${BIN_NAME} .
+.PHONY: build
+build: build-web build-cli
 
 .PHONY: build-web
 build-web:
-	CGO_ENABLED=0 go build -v -o dist/contributor-report-web ./cmd/contributor-report-web
+	CGO_ENABLED=0 go build -v -ldflags "-X main.version=$(VERSION)" -o ${DIST_DIR}/contributor-report-web ./cmd/contributor-report-web
+
+.PHONY: build-cli
+build-cli:
+	CGO_ENABLED=0 go build -v -ldflags "-X main.version=$(VERSION)" -o ${DIST_DIR}/contributor-report ./cmd/contributor-report
 
 .PHONY: lint
 lint:
@@ -32,18 +37,19 @@ coverage-html: test-coverage
 coverage:
 	go test -cover ./...
 
+.PHONY: release-binary
+release-binary:
+	CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} go build -v -ldflags "-X main.version=$(VERSION)" -o ${DIST_DIR}/${BIN_NAME} ./cmd/contributor-report
+
 .PHONY: release
 release:
-	make BIN_NAME=contributor-report-darwin-amd64 GOOS=darwin GOARCH=amd64 contributor-report-build
-	make BIN_NAME=contributor-report-darwin-arm64 GOOS=darwin GOARCH=arm64 contributor-report-build
-	make BIN_NAME=contributor-report-linux-amd64 GOOS=linux GOARCH=amd64 contributor-report-build
-	make BIN_NAME=contributor-report-linux-arm64 GOOS=linux GOARCH=arm64 contributor-report-build
-	make BIN_NAME=contributor-report-windows-amd64.exe GOOS=windows GOARCH=amd64 contributor-report-build
+	make BIN_NAME=contributor-report-darwin-amd64 GOOS=darwin GOARCH=amd64 release-binary
+	make BIN_NAME=contributor-report-darwin-arm64 GOOS=darwin GOARCH=arm64 release-binary
+	make BIN_NAME=contributor-report-linux-amd64 GOOS=linux GOARCH=amd64 release-binary
+	make BIN_NAME=contributor-report-linux-arm64 GOOS=linux GOARCH=arm64 release-binary
+	make BIN_NAME=contributor-report-windows-amd64.exe GOOS=windows GOARCH=amd64 release-binary
 
 .PHONY: clean
 clean:
-	rm -f $(BIN_NAME)
-	rm -f contributor-report-*
+	rm -rf $(DIST_DIR)
 	rm -rf coverage.out coverage.html
-	rm -f report.html
-	rm -rf dist

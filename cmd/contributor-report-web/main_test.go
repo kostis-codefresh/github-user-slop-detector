@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -66,15 +67,15 @@ func TestReportPage(t *testing.T) {
 		expectedCode int
 		expectedBody string
 	}{
-		{name: "Happy Path scenario", path: "/octocat", expectedCode: http.StatusOK, expectedBody: "@octocat"},
-		{name: "Links back to the home page", path: "/octocat", expectedCode: http.StatusOK, expectedBody: `href="/"`},
-		{name: "Rejects a login GitHub cannot have", path: "/no_such!", expectedCode: http.StatusNotFound, expectedBody: "not a valid GitHub username"},
+		{name: "Happy Path scenario", path: "/report/octocat", expectedCode: http.StatusOK, expectedBody: "@octocat"},
+		{name: "Links back to the home page", path: "/report/octocat", expectedCode: http.StatusOK, expectedBody: `href="/"`},
+		{name: "Rejects a login GitHub cannot have", path: "/report/no_such!", expectedCode: http.StatusNotFound, expectedBody: "not a valid GitHub username"},
 		{
-			name: "Unknown user is not found", path: "/ghost", err: fmt.Errorf("%w: ghost", analysis.ErrUserNotFound),
+			name: "Unknown user is not found", path: "/report/ghost", err: fmt.Errorf("%w: ghost", analysis.ErrUserNotFound),
 			expectedCode: http.StatusNotFound, expectedBody: "No GitHub user named ghost",
 		},
 		{
-			name: "Failed fetch is a bad gateway", path: "/octocat", err: errors.New("GitHub rate limit exceeded"),
+			name: "Failed fetch is a bad gateway", path: "/report/octocat", err: errors.New("GitHub rate limit exceeded"),
 			expectedCode: http.StatusBadGateway, expectedBody: "GitHub rate limit exceeded",
 		},
 	}
@@ -82,7 +83,7 @@ func TestReportPage(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			stub := newStub()
-			stub.errs[strings.TrimPrefix(tc.path, "/")] = tc.err
+			stub.errs[strings.TrimPrefix(tc.path, "/report/")] = tc.err
 
 			rec := get(t, newHandler(stub.analyze), tc.path, false)
 
@@ -92,10 +93,19 @@ func TestReportPage(t *testing.T) {
 	}
 }
 
+func TestReportsAreNotServedAtTheTopLevel(t *testing.T) {
+	stub := newStub()
+
+	rec := get(t, newHandler(stub.analyze), "/octocat", false)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code, "reports live under /report/, so /octocat is not one")
+	assert.Empty(t, stub.calls, "an unknown path should not cost an API call")
+}
+
 func TestReportPageRejectsInvalidLoginsWithoutCallingGitHub(t *testing.T) {
 	stub := newStub()
 
-	get(t, newHandler(stub.analyze), "/no_such!", false)
+	get(t, newHandler(stub.analyze), "/report/no_such!", false)
 
 	assert.Empty(t, stub.calls, "an impossible login should not cost an API call")
 }
@@ -104,8 +114,8 @@ func TestReportPageServesRepeatsFromTheCache(t *testing.T) {
 	stub := newStub()
 	h := newHandler(stub.analyze)
 
-	first := get(t, h, "/octocat", false)
-	second := get(t, h, "/OctoCat", false)
+	first := get(t, h, "/report/octocat", false)
+	second := get(t, h, "/report/OctoCat", false)
 
 	require.Equal(t, http.StatusOK, first.Code, "the first request should render")
 	assert.Equal(t, http.StatusOK, second.Code, "the cached request should render")
@@ -118,8 +128,8 @@ func TestReportPageDoesNotCacheFailures(t *testing.T) {
 	stub.errs["octocat"] = errors.New("GitHub returned 502")
 	h := newHandler(stub.analyze)
 
-	get(t, h, "/octocat", false)
-	get(t, h, "/octocat", false)
+	get(t, h, "/report/octocat", false)
+	get(t, h, "/report/octocat", false)
 
 	assert.Equal(t, 2, stub.calls["octocat"], "a failed fetch should be retried, not served from the cache")
 }
@@ -138,7 +148,7 @@ func TestAnalyzeForm(t *testing.T) {
 	}{
 		{
 			name: "Happy Path scenario", htmx: true, username: "octocat",
-			expectedCode: http.StatusOK, expectedRedirect: "/octocat", expectedCalls: 1,
+			expectedCode: http.StatusOK, expectedRedirect: "/report/octocat", expectedCalls: 1,
 		},
 		{
 			name: "Unknown user stays on the form", htmx: true, username: "ghost",
@@ -151,7 +161,7 @@ func TestAnalyzeForm(t *testing.T) {
 		},
 		{
 			name: "Without htmx the form redirects to the report", username: "octocat",
-			expectedCode: http.StatusSeeOther, expectedLocation: "/octocat",
+			expectedCode: http.StatusSeeOther, expectedLocation: "/report/octocat",
 		},
 	}
 
@@ -176,7 +186,7 @@ func TestAnalyzeFormLeavesTheReportInTheCache(t *testing.T) {
 	h := newHandler(stub.analyze)
 
 	get(t, h, "/?username=octocat", true)
-	rec := get(t, h, "/octocat", false)
+	rec := get(t, h, "/report/octocat", false)
 
 	assert.Equal(t, http.StatusOK, rec.Code, "the redirect target should render")
 	assert.Equal(t, 1, stub.calls["octocat"], "the redirect target should be a cache hit")
@@ -193,13 +203,18 @@ func TestHomePage(t *testing.T) {
 		{
 			name:     "Lists cached reports newest first",
 			analyzed: []string{"first-user", "second-user"},
-			expected: []string{`<a href="/second-user">second-user</a>`, "14 Oct 2026", `<a href="/first-user">first-user</a>`},
+			expected: []string{`<a href="/report/second-user">second-user</a>`, "14 Oct 2026", `<a href="/report/first-user">first-user</a>`},
 		},
 		{
 			name:        "Shows each report's points and result",
 			analyzed:    []string{"first-user", "second-user"},
 			needsReview: "first-user",
 			expected:    []string{"second-user", "5/11", "Passed", "first-user", "5/11", "Needs Review"},
+		},
+		{
+			name:     "Shows the version after the reports",
+			analyzed: []string{"first-user"},
+			expected: []string{"first-user", "<footer>Version dev</footer>"},
 		},
 	}
 
@@ -209,7 +224,7 @@ func TestHomePage(t *testing.T) {
 			stub.needsReview[tc.needsReview] = true
 			h := newHandler(stub.analyze)
 			for _, login := range tc.analyzed {
-				require.Equal(t, http.StatusOK, get(t, h, "/"+login, false).Code, "analyzing %s should succeed", login)
+				require.Equal(t, http.StatusOK, get(t, h, "/report/"+login, false).Code, "analyzing %s should succeed", login)
 			}
 
 			rec := get(t, h, "/", false)
@@ -232,14 +247,14 @@ func TestCacheEvictsTheOldestReport(t *testing.T) {
 	h := newHandler(stub.analyze)
 
 	for i := range maxReports + 1 {
-		get(t, h, fmt.Sprintf("/user-%d", i), false)
+		get(t, h, fmt.Sprintf("/report/user-%d", i), false)
 	}
 	home := get(t, h, "/", false).Body.String()
-	get(t, h, "/user-0", false)
+	get(t, h, "/report/user-0", false)
 
-	assert.NotContains(t, home, `href="/user-0"`, "the oldest report should be evicted")
-	assert.Contains(t, home, `href="/user-1"`, "the next oldest report should survive")
-	assert.Contains(t, home, fmt.Sprintf(`href="/user-%d"`, maxReports), "the newest report should be listed")
+	assert.NotContains(t, home, `href="/report/user-0"`, "the oldest report should be evicted")
+	assert.Contains(t, home, `href="/report/user-1"`, "the next oldest report should survive")
+	assert.Contains(t, home, fmt.Sprintf(`href="/report/user-%d"`, maxReports), "the newest report should be listed")
 	assert.Equal(t, 2, stub.calls["user-0"], "an evicted report is fetched again")
 }
 
@@ -249,4 +264,14 @@ func TestLogo(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code, "the logo should be served")
 	assert.Equal(t, "image/svg+xml", rec.Header().Get("Content-Type"), "content type mismatch")
 	assert.Contains(t, rec.Body.String(), "<svg", "body should be the SVG")
+}
+
+func TestHealth(t *testing.T) {
+	rec := get(t, newHandler(newStub().analyze), "/health", false)
+
+	require.Equal(t, http.StatusOK, rec.Code, "the health check should succeed")
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"), "content type mismatch")
+	var body struct{ Status string }
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body), "body should be JSON")
+	assert.Equal(t, "ok", body.Status, "status mismatch")
 }

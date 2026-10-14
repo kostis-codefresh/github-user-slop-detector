@@ -40,13 +40,13 @@ jobs:
       - name: List generated binaries
         run: |
           echo "Generated binaries:"
-          ls -la contributor-report-*
+          ls -la dist/contributor-report-*
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           name: Release ${{ github.ref_name }}
-          files: contributor-report-*
+          files: dist/contributor-report-*
           body: |
             ## Contributor Report ${{ github.ref_name }}
 

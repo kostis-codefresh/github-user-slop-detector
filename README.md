@@ -1,7 +1,8 @@
 # Contributor Report 🔍
 
-A single-binary Go CLI that analyses a GitHub user's public activity and writes an HTML contributor report, to
-help maintainers spot low-effort or AI-generated pull requests ("AI slop") before spending review time on them.
+A Go web app that analyses a GitHub user's public activity and serves an HTML contributor report, to help
+maintainers spot low-effort or AI-generated pull requests ("AI slop") before spending review time on them. The same
+analysis is also available as a CLI that writes the report to a file.
 
 You give it a username, it gives you thirteen objective metrics with their values, their thresholds, and the evidence
 behind each one. It does not produce a score or a verdict on a person — it produces data you can act on.
@@ -64,28 +65,46 @@ metric name links to the upstream page explaining how its number is derived, and
 
 - A GitHub token in `GH_TOKEN`. The GitHub GraphQL API this tool uses does not accept anonymous requests, so the
   token is required rather than just a way to raise rate limits.
-- Go 1.23+ to build it.
+- Go 1.23+ to build it, or Docker.
 
 ### Building
 
 ```bash
-go build -o contributor-report .
+make build        # dist/contributor-report-web and dist/contributor-report
+make build-web    # the web app only
+make build-cli    # the CLI only
 ```
 
-### Running
+### Web app
+
+```bash
+# Serve on :8080 (set PORT to change it)
+GH_TOKEN=$(gh auth token) ./dist/contributor-report-web
+
+# Run it straight from source
+GH_TOKEN=$(gh auth token) go run ./cmd/contributor-report-web
+
+# Or the published container image
+docker run -e GH_TOKEN=$(gh auth token) -p 8080:8080 ghcr.io/kostis-codefresh/github-user-slop-detector-web
+```
+
+Enter a username on the home page, or open `/report/<username>` directly. The last 20 reports are kept in memory
+and listed on the home page; `/health` is a liveness check.
+
+### CLI
 
 ```bash
 # Report on a user
-GH_TOKEN=$(gh auth token) ./contributor-report octocat
+GH_TOKEN=$(gh auth token) ./dist/contributor-report octocat
 
 # Include the two repo-history metrics, which need a repository to look at
-GH_TOKEN=$(gh auth token) ./contributor-report --repo owner/name octocat
+GH_TOKEN=$(gh auth token) ./dist/contributor-report --repo owner/name octocat
 
 # Only show the evidence for metrics that failed
-GH_TOKEN=$(gh auth token) ./contributor-report --details failed octocat
+GH_TOKEN=$(gh auth token) ./dist/contributor-report --details failed octocat
 
 # Run it straight from source
-GH_TOKEN=$(gh auth token) go run . octocat
+GH_TOKEN=$(gh auth token) go run ./cmd/contributor-report octocat
 ```
 
 The report is written to `<username>.html` in the working directory — `octocat.html` for the runs above — so reports
@@ -112,10 +131,10 @@ step 16/16  Render Report ............. done (octocat.html)
 ### Configuration
 
 Every threshold is a flag, and they default to meaningful values rather than the permissive all-zero defaults the
-GitHub Action ships with — a bare run should tell you something. Run `./contributor-report -h` for the full list.
+GitHub Action ships with — a bare run should tell you something. Run `./dist/contributor-report -h` for the full list.
 
 ```bash
-./contributor-report \
+./dist/contributor-report \
   --threshold-pr-merge-rate 0.5 \
   --threshold-account-age 90 \
   --minimum-stars 500 \
@@ -133,23 +152,25 @@ Two flags are worth calling out:
 
 ## What it does
 
-When you run it, the tool will:
+For each username (from the web form or the CLI argument), the tool will:
 
 1. **📅 Work out the analysis window**: twelve months back by default, configurable with `--analysis-window`
 2. **📡 Fetch the contributor's activity**: one GraphQL query for the profile, pull requests, issue comments, opened
    issues and contribution calendar, paginated up to 500 PRs and 500 comments
 3. **✅ Evaluate every metric**: thirteen independent checks over the fetched data, plus four spam heuristics
-4. **📊 Render the report**: a self-contained HTML document written to `<username>.html`, with the metric table, the
-   detail blocks and any recommendations
-5. **🚪 Exit accordingly**: non-zero when a required metric did not pass
+4. **📊 Render the report**: a self-contained HTML document with the metric table, the detail blocks and any
+   recommendations — served by the web app, or written to `<username>.html` by the CLI
+5. **🚪 Exit accordingly** (CLI only): non-zero when a required metric did not pass
 
 ## Project layout
 
 ```
-main.go            flag parsing and the pipeline
-pkg/analysis/      the Contributor data model and the GitHub GraphQL fetcher
-pkg/metrics/       the Metric interface, the registry, one file per metric, the spam patterns
-pkg/report/        the embedded HTML template and the renderer
+cmd/contributor-report-web/   the web app: handlers and the in-memory report cache
+ui/                           the web app's embedded home page
+cmd/contributor-report/       the CLI: flag parsing and the pipeline
+pkg/analysis/                 the Contributor data model and the GitHub GraphQL fetcher
+pkg/metrics/                  the Metric interface, the registry, one file per metric, the spam patterns
+pkg/report/                   the embedded HTML template and the renderer
 ```
 
 Adding a metric touches three places: a new `pkg/metrics/m_<name>.go` implementing `Metric`, an entry in the
@@ -161,9 +182,9 @@ and never touch the network.
 ## Development
 
 ```bash
-go build ./...
-go vet ./...
-go test ./...
+make build
+make test
+make lint
 
 # Refresh the report renderer's golden files after a deliberate output change
 go test ./pkg/report -update

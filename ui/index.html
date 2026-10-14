@@ -77,6 +77,7 @@
         .htmx-request #analyze-result { display: none; }
         .error { color: #cf222e; }
         td.empty { color: #59636e; text-align: left; }
+        footer { text-align: center; font-size: 0.75rem; color: #59636e; }
         /* At phone width the table's unwrapped rows need the room, or the cards lose their side gutter. */
         @media (max-width: 30rem) {
             .column { width: 100%; }
@@ -120,12 +121,13 @@
                     <tr><th>Username</th><th>Report created</th><th>Points</th><th>Result</th></tr>
                 </thead>
                 <tbody>
-                    {{range .Reports}}<tr><td><a href="/{{.Username}}">{{.Username}}</a></td><td>{{.WindowEnd.Format "02 Jan 2006"}}</td><td>{{.PassedCount}}/{{.TotalCount}}</td><td class="{{if .Passed}}passed{{else}}needs-review{{end}}">{{if .Passed}}Passed{{else}}Needs Review{{end}}</td></tr>
+                    {{range .Reports}}<tr><td><a href="/report/{{.Username}}">{{.Username}}</a></td><td>{{.WindowEnd.Format "02 Jan 2006"}}</td><td>{{.PassedCount}}/{{.TotalCount}}</td><td class="{{if .Passed}}passed{{else}}needs-review{{end}}">{{if .Passed}}Passed{{else}}Needs Review{{end}}</td></tr>
                     {{else}}<tr><td class="empty" colspan="4">No reports yet.</td></tr>
                     {{end}}
                 </tbody>
             </table>
         </section>
+        <footer>Version {{.Version}}</footer>
     </div>
 </body>
 </html>
