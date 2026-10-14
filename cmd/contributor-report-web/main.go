@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -143,6 +144,12 @@ func newHandler(analyze analyzeFunc, cfg authConfig) http.Handler {
 			Missing:               cfg.missing(),
 			AppBaseURL:            cfg.BaseURL,
 		})
+	})
+	mux.HandleFunc("GET /debug", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		for _, row := range sysInfo() {
+			_, _ = fmt.Fprintf(w, "%s: %s\n", row.Label, row.Value)
+		}
 	})
 	mux.HandleFunc("GET /img/logo.svg", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "image/svg+xml")

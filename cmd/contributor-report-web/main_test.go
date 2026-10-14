@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -440,4 +441,21 @@ func TestHealth(t *testing.T) {
 			assert.Equal(t, "https://reports.example.com", body.AppBaseURL, "app_base_url mismatch")
 		})
 	}
+}
+
+func TestDebug(t *testing.T) {
+	rec := get(t, newHandler(newStub().analyze, testAuthConfig), "/debug", false)
+
+	require.Equal(t, http.StatusOK, rec.Code, "the debug page should be served")
+	assert.Equal(t, "text/plain; charset=utf-8", rec.Header().Get("Content-Type"), "content type mismatch")
+	body := rec.Body.String()
+	assert.Contains(t, body, "Go version: "+runtime.Version()+"\n", "body should carry the Go version line")
+	assert.Contains(t, body, "\nGoroutines: ", "body should carry the goroutine count line")
+}
+
+func TestFormatBytes(t *testing.T) {
+	assert.Equal(t, "512 B", formatBytes(512), "bytes mismatch")
+	assert.Equal(t, "1.5 KiB", formatBytes(1536), "KiB mismatch")
+	assert.Equal(t, "2.0 MiB", formatBytes(2<<20), "MiB mismatch")
+	assert.Equal(t, "3.0 GiB", formatBytes(3<<30), "GiB mismatch")
 }
