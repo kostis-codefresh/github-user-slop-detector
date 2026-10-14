@@ -100,7 +100,7 @@ func Write(w io.Writer, r metrics.Report, mode DetailMode, homeURL string) error
 		WindowStart:     r.WindowStart.Format("2006-01-02"),
 		WindowEnd:       r.WindowEnd.Format("2006-01-02"),
 		// WindowEnd is when the data was fetched, so a cached report shows its age.
-		GeneratedAt: r.WindowEnd.Format("02 Jan 2006 15:04 MST"),
+		GeneratedAt: r.WindowEnd.Format("02 Jan 2006"),
 		Logo:        template.HTML(Logo), // our own embedded SVG, so trusting it as markup is safe
 		HomeURL:     homeURL,
 	}

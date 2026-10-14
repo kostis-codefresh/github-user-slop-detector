@@ -60,9 +60,12 @@
         table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
         th { text-align: left; font-weight: 600; color: #59636e; }
         th, td { padding: 0.5rem 0; border-bottom: 1px solid #d8dee4; }
-        th:last-child, td:last-child { text-align: right; }
+        th:not(:first-child), td:not(:first-child) { text-align: right; padding-left: 1rem; white-space: nowrap; }
         tr:last-child td { border-bottom: none; }
-        td:last-child { color: #59636e; white-space: nowrap; }
+        td:nth-child(2) { color: #59636e; }
+        /* The report's verdict colours. */
+        td.passed { color: #1a7f37; font-weight: 600; }
+        td.needs-review { color: #9a6700; font-weight: 600; }
         a { color: #0969da; text-decoration: none; }
         a:hover { text-decoration: underline; }
         button:disabled { opacity: 0.6; cursor: wait; }
@@ -78,6 +81,9 @@
         @media (max-width: 30rem) {
             .column { width: 100%; }
             .card { padding: 1rem; }
+            /* Four columns are a squeeze on a phone, so the headers wrap instead of the values. */
+            th:not(:first-child) { white-space: normal; }
+            th:not(:first-child), td:not(:first-child) { padding-left: 0.5rem; }
         }
     </style>
 </head>
@@ -92,7 +98,10 @@
     <div class="column">
         <main class="card">
             <h1><img src="/img/logo.svg" alt="">Contributor Report</h1>
-            <p>Analyse a GitHub user's public activity.</p>
+            <p>Analyse a GitHub user's public activity. <a href="https://github.com/kostis-codefresh/github-user-slop-detector">Source code</a>.
+                 Inspired by
+                <a href="https://github.com/jdiegosierra/contributor-report">jdiegosierra/contributor-report</a>.
+                 </p>
             <!-- With htmx the analysis runs behind the indicator and the server answers with an
                  HX-Redirect to the report; without it this is a plain GET that redirects there. -->
             <form action="/" method="get" hx-get="/" hx-target="#analyze-result" hx-disabled-elt="find button">
@@ -108,11 +117,11 @@
             <h2>Previous reports</h2>
             <table>
                 <thead>
-                    <tr><th>Username</th><th>Report created</th></tr>
+                    <tr><th>Username</th><th>Report created</th><th>Points</th><th>Result</th></tr>
                 </thead>
                 <tbody>
-                    {{range .Reports}}<tr><td><a href="/{{.Username}}">{{.Username}}</a></td><td>{{.WindowEnd.Format "02 Jan 2006 15:04 MST"}}</td></tr>
-                    {{else}}<tr><td class="empty" colspan="2">No reports yet.</td></tr>
+                    {{range .Reports}}<tr><td><a href="/{{.Username}}">{{.Username}}</a></td><td>{{.WindowEnd.Format "02 Jan 2006"}}</td><td>{{.PassedCount}}/{{.TotalCount}}</td><td class="{{if .Passed}}passed{{else}}needs-review{{end}}">{{if .Passed}}Passed{{else}}Needs Review{{end}}</td></tr>
+                    {{else}}<tr><td class="empty" colspan="4">No reports yet.</td></tr>
                     {{end}}
                 </tbody>
             </table>

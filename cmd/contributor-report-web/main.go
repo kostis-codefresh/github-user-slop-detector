@@ -151,8 +151,12 @@ func main() {
 		log.Fatal("GH_TOKEN is not set: the GitHub GraphQL API requires a token.\n" +
 			"Try: GH_TOKEN=$(gh auth token) contributor-report-web")
 	}
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 	srv := &http.Server{
-		Addr:              ":8080",
+		Addr:              ":" + port,
 		Handler:           newHandler(githubAnalyzer(token)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

@@ -17,19 +17,22 @@ import (
 )
 
 // stubAnalyzer stands in for GitHub: it counts calls per login, fails the
-// logins listed in errs, and stamps each report a minute after the previous
-// one so the cache order is deterministic.
+// logins listed in errs, gives the logins in needsReview a failed verdict, and
+// stamps each report a minute after the previous one so the cache order is
+// deterministic.
 type stubAnalyzer struct {
-	calls map[string]int
-	errs  map[string]error
-	clock time.Time
+	calls       map[string]int
+	errs        map[string]error
+	needsReview map[string]bool
+	clock       time.Time
 }
 
 func newStub() *stubAnalyzer {
 	return &stubAnalyzer{
-		calls: make(map[string]int),
-		errs:  make(map[string]error),
-		clock: time.Date(2026, 10, 14, 9, 0, 0, 0, time.UTC),
+		calls:       make(map[string]int),
+		errs:        make(map[string]error),
+		needsReview: make(map[string]bool),
+		clock:       time.Date(2026, 10, 14, 9, 0, 0, 0, time.UTC),
 	}
 }
 
@@ -39,7 +42,9 @@ func (s *stubAnalyzer) analyze(_ context.Context, username string) (metrics.Repo
 		return metrics.Report{}, err
 	}
 	s.clock = s.clock.Add(time.Minute)
-	return metrics.Report{Username: username, Passed: true, WindowEnd: s.clock}, nil
+	return metrics.Report{
+		Username: username, Passed: !s.needsReview[username], PassedCount: 5, TotalCount: 11, WindowEnd: s.clock,
+	}, nil
 }
 
 func get(t *testing.T, h http.Handler, path string, htmx bool) *httptest.ResponseRecorder {
@@ -179,21 +184,30 @@ func TestAnalyzeFormLeavesTheReportInTheCache(t *testing.T) {
 
 func TestHomePage(t *testing.T) {
 	testCases := []struct {
-		name     string
-		analyzed []string
-		expected []string
+		name        string
+		analyzed    []string
+		needsReview string
+		expected    []string
 	}{
 		{name: "Empty cache", expected: []string{"No reports yet."}},
 		{
 			name:     "Lists cached reports newest first",
 			analyzed: []string{"first-user", "second-user"},
-			expected: []string{`<a href="/second-user">second-user</a>`, "14 Oct 2026 09:02 UTC", `<a href="/first-user">first-user</a>`},
+			expected: []string{`<a href="/second-user">second-user</a>`, "14 Oct 2026", `<a href="/first-user">first-user</a>`},
+		},
+		{
+			name:        "Shows each report's points and result",
+			analyzed:    []string{"first-user", "second-user"},
+			needsReview: "first-user",
+			expected:    []string{"second-user", "5/11", "Passed", "first-user", "5/11", "Needs Review"},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			h := newHandler(newStub().analyze)
+			stub := newStub()
+			stub.needsReview[tc.needsReview] = true
+			h := newHandler(stub.analyze)
 			for _, login := range tc.analyzed {
 				require.Equal(t, http.StatusOK, get(t, h, "/"+login, false).Code, "analyzing %s should succeed", login)
 			}
