@@ -6,6 +6,10 @@ VERSION := $(shell git describe --tags --exact-match HEAD 2>/dev/null || git rev
 contributor-report-build:
 	CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} go build -v -ldflags "-X main.version=$(VERSION)" -o ${BIN_NAME} .
 
+.PHONY: build-web
+build-web:
+	CGO_ENABLED=0 go build -v -o dist/contributor-report-web ./cmd/contributor-report-web
+
 .PHONY: lint
 lint:
 	golangci-lint run --fix
@@ -42,3 +46,4 @@ clean:
 	rm -f contributor-report-*
 	rm -rf coverage.out coverage.html
 	rm -f report.html
+	rm -rf dist

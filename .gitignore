@@ -33,8 +33,9 @@ go.work.sum
 /*.html
 
 # Built binaries
-contributor-report
-contributor-report-*
+/contributor-report
+/contributor-report-*
+/dist/
 
 # Editor/IDE
 # .idea/
