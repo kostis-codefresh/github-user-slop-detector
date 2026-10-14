@@ -31,16 +31,28 @@ var loginPattern = regexp.MustCompile(`^[A-Za-z0-9-]{1,39}$`)
 
 var errInvalidLogin = errors.New("not a valid GitHub username")
 
+// errReadOnly is a cache miss with no GitHub token to analyze it with.
+var errReadOnly = errors.New("read only mode")
+
+// loggedInUser is who the banner says is logged in. A placeholder until the
+// GitHub OAuth flow supplies the real login along with the token.
+var loggedInUser = "demo-user"
+
 // version is overridden at build time with -ldflags "-X main.version=...".
 var version = "dev"
 
 type pageData struct {
-	Reports []metrics.Report
-	Error   string
-	Version string
+	Reports  []metrics.Report
+	Error    string
+	Version  string
+	ReadOnly bool
+	User     string
 }
 
+// newHandler serves the app. A nil analyze is read-only mode: cached reports
+// are still served, but nothing new can be analyzed.
 func newHandler(analyze analyzeFunc) http.Handler {
+	readOnly := analyze == nil
 	tmpl := template.Must(template.ParseFS(ui.Embedded, "index.html"))
 	cache := newReportCache()
 
@@ -52,6 +64,9 @@ func newHandler(analyze analyzeFunc) http.Handler {
 		}
 		if r, ok := cache.get(username); ok {
 			return r, nil
+		}
+		if readOnly {
+			return metrics.Report{}, errReadOnly
 		}
 		r, err := analyze(ctx, username)
 		if err != nil {
@@ -71,7 +86,11 @@ func newHandler(analyze analyzeFunc) http.Handler {
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		username := r.FormValue("username")
 		if username == "" {
-			execute(w, "index.html", pageData{Reports: cache.list(), Version: version})
+			data := pageData{Reports: cache.list(), Version: version, ReadOnly: readOnly}
+			if !readOnly {
+				data.User = loggedInUser
+			}
+			execute(w, "index.html", data)
 			return
 		}
 		target := "/report/" + url.PathEscape(username)
@@ -107,6 +126,9 @@ func newHandler(analyze analyzeFunc) http.Handler {
 		case errors.Is(err, errInvalidLogin), errors.Is(err, analysis.ErrUserNotFound):
 			http.Error(w, errorMessage(username, err), http.StatusNotFound)
 			return
+		case errors.Is(err, errReadOnly):
+			http.Error(w, errorMessage(username, err), http.StatusForbidden)
+			return
 		case err != nil:
 			log.Printf("analyzing %s: %v", username, err)
 			http.Error(w, errorMessage(username, err), http.StatusBadGateway)
@@ -132,6 +154,8 @@ func errorMessage(username string, err error) string {
 		return username + " is not a valid GitHub username."
 	case errors.Is(err, analysis.ErrUserNotFound):
 		return "No GitHub user named " + username + "."
+	case errors.Is(err, errReadOnly):
+		return "Read only mode. Login with GitHub to start analyzing usernames."
 	default:
 		return "Could not analyze " + username + ": " + err.Error()
 	}
@@ -156,9 +180,13 @@ func githubAnalyzer(token string) analyzeFunc {
 }
 
 func main() {
-	token := os.Getenv("GH_TOKEN")
-	if token == "" {
-		log.Fatal("GH_TOKEN is not set: the GitHub GraphQL API requires a token.\n" +
+	// Without a token the GraphQL API rejects every request, so the app starts
+	// read-only rather than offering an Analyze button that can only fail.
+	var analyze analyzeFunc
+	if token := os.Getenv("GH_TOKEN"); token != "" {
+		analyze = githubAnalyzer(token)
+	} else {
+		log.Print("GH_TOKEN is not set: starting in read only mode. " +
 			"Try: GH_TOKEN=$(gh auth token) contributor-report-web")
 	}
 	port := os.Getenv("PORT")
@@ -167,7 +195,7 @@ func main() {
 	}
 	srv := &http.Server{
 		Addr:              ":" + port,
-		Handler:           newHandler(githubAnalyzer(token)),
+		Handler:           newHandler(analyze),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	log.Printf("listening on %s", srv.Addr)

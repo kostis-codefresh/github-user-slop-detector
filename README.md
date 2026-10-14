@@ -89,7 +89,8 @@ docker run -e GH_TOKEN=$(gh auth token) -p 8080:8080 ghcr.io/kostis-codefresh/gi
 ```
 
 Enter a username on the home page, or open `/report/<username>` directly. The last 20 reports are kept in memory
-and listed on the home page; `/health` is a liveness check.
+and listed on the home page; `/health` is a liveness check. Without `GH_TOKEN` the app still starts, in read-only
+mode: the Analyze button is disabled and a banner says so.
 
 ### CLI
 

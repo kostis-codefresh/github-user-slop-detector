@@ -238,6 +238,62 @@ func TestHomePage(t *testing.T) {
 				at += i + len(want)
 			}
 			assert.NotContains(t, body, "{{", "the template should be fully rendered")
+			assert.Contains(t, body, "Logged in as <strong>demo-user</strong>", "with a token the banner should name the user")
+			assert.Contains(t, body, "Logout</button>", "with a token the banner should offer Logout")
+			assert.NotContains(t, body, "Read only mode", "with a token there should be no read-only banner")
+			assert.NotContains(t, body, "Login</button>", "with a token there should be no Login button")
+		})
+	}
+}
+
+func TestReadOnlyMode(t *testing.T) {
+	const message = "Read only mode. Login with GitHub to start analyzing usernames"
+	testCases := []struct {
+		name         string
+		path         string
+		htmx         bool
+		expectedCode int
+		expected     []string
+	}{
+		{
+			name:         "Home page shows the banner and disables Analyze",
+			path:         "/",
+			expectedCode: http.StatusOK,
+			expected: []string{
+				`<div class="banner warning">Read only mode.`, "Login</button>", "to start analyzing usernames</div>",
+				`<button type="submit" disabled>Analyze</button>`,
+			},
+		},
+		{
+			name:         "Report page refuses to analyze",
+			path:         "/report/octocat",
+			expectedCode: http.StatusForbidden,
+			expected:     []string{message},
+		},
+		{
+			name:         "Form shows the read-only error",
+			path:         "/?username=octocat",
+			htmx:         true,
+			expectedCode: http.StatusOK,
+			expected:     []string{`<p class="status error">` + message},
+		},
+		{
+			name:         "Invalid login is still a 404",
+			path:         "/report/no_such!",
+			expectedCode: http.StatusNotFound,
+			expected:     []string{"not a valid GitHub username"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := get(t, newHandler(nil), tc.path, tc.htmx)
+
+			assert.Equal(t, tc.expectedCode, rec.Code, "unexpected status for %s", tc.path)
+			for _, want := range tc.expected {
+				assert.Contains(t, rec.Body.String(), want, "the response for %s should contain %q", tc.path, want)
+			}
+			assert.NotContains(t, rec.Body.String(), "Logged in as", "read-only mode has no logged-in user")
 		})
 	}
 }
