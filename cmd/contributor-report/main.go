@@ -173,7 +173,7 @@ func writeReport(path string, result metrics.Report, mode report.DetailMode) err
 // --required="" means "no metric gates the verdict".
 func splitList(s string) []string {
 	var out []string
-	for _, item := range strings.Split(s, ",") {
+	for item := range strings.SplitSeq(s, ",") {
 		if trimmed := strings.TrimSpace(item); trimmed != "" {
 			out = append(out, trimmed)
 		}
