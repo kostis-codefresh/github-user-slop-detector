@@ -39,8 +39,6 @@ func mergedPR(repo string, stars int, mergedBy string) analysis.PullRequest {
 		Merged:    true,
 		CreatedAt: testSince.AddDate(0, 1, 0),
 		MergedAt:  testSince.AddDate(0, 2, 0),
-		Additions: 50,
-		Deletions: 10,
 		MergedBy:  mergedBy,
 		RepoOwner: owner,
 		RepoName:  name,
@@ -53,7 +51,7 @@ func closedPR(repo string) analysis.PullRequest {
 	owner, name := splitRepo(repo)
 	return analysis.PullRequest{
 		State: "CLOSED", CreatedAt: testSince.AddDate(0, 1, 0),
-		Additions: 20, Deletions: 5, RepoOwner: owner, RepoName: name,
+		RepoOwner: owner, RepoName: name,
 	}
 }
 
@@ -62,7 +60,7 @@ func openPR(repo string) analysis.PullRequest {
 	owner, name := splitRepo(repo)
 	return analysis.PullRequest{
 		State: "OPEN", CreatedAt: testSince.AddDate(0, 1, 0),
-		Additions: 3, Deletions: 1, RepoOwner: owner, RepoName: name,
+		RepoOwner: owner, RepoName: name,
 	}
 }
 

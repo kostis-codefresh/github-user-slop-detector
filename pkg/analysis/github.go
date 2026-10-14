@@ -66,7 +66,11 @@ func (cl *Client) Fetch(ctx context.Context, username string, since time.Time) (
 	c.RateLimit = toRateLimit(prFirst)
 	prPage := userOf(prFirst).PullRequests
 	c.PullRequests = convertPRs(prPage.Nodes)
-	for page := 1; page < maxPages && prPage.PageInfo.HasNextPage; page++ {
+	// The connection is ordered newest first, so once a page reaches a PR from
+	// before the window every later page would be dropped by the filter below.
+	// Stopping there saves the requests without changing the data, and is what
+	// makes a shorter window cheaper on the PR side at all.
+	for page := 1; page < maxPages && prPage.PageInfo.HasNextPage && !reachedBefore(prPage.Nodes, since); page++ {
 		vars["prCursor"] = prPage.PageInfo.EndCursor
 		next, err := cl.section(ctx, vars, fmt.Sprintf("PRs page %d", page+1), withPRs)
 		if err != nil {
@@ -112,6 +116,11 @@ func (cl *Client) Fetch(ctx context.Context, username string, since time.Time) (
 	c.PullRequests = kept
 
 	return c, nil
+}
+
+// reachedBefore reports whether the page's oldest PR predates since.
+func reachedBefore(nodes []prNode, since time.Time) bool {
+	return len(nodes) > 0 && nodes[len(nodes)-1].CreatedAt.Before(since)
 }
 
 // The @include flags in contributorQuery, one per section of the document.
@@ -206,8 +215,6 @@ func convertPRs(nodes []prNode) []PullRequest {
 			State:     n.State,
 			Merged:    n.Merged,
 			CreatedAt: n.CreatedAt,
-			Additions: n.Additions,
-			Deletions: n.Deletions,
 		}
 		if n.MergedAt != nil {
 			pr.MergedAt = *n.MergedAt
@@ -320,9 +327,9 @@ func (cl *Client) do(ctx context.Context, vars map[string]any) (*queryData, erro
 	// rate limit for the next hour" — so this stops rather than paying that twice
 	// more for the same likely outcome. Other 5xx are genuine blips, still retried.
 	if resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusGatewayTimeout {
-		return nil, errors.New(serverErrorMessage(resp, detail,
-			fmt.Sprintf("GitHub could not answer the query within its 10s limit (HTTP %d), not retrying because "+
-				"each timeout costs extra rate-limit points; try a shorter --analysis-window", resp.StatusCode)))
+		return nil, fmt.Errorf("%w: %s", ErrQueryTimeout, serverErrorMessage(resp, detail,
+			fmt.Sprintf("HTTP %d, not retrying the same query because each timeout costs extra rate-limit points",
+				resp.StatusCode)))
 	}
 	if resp.StatusCode >= 500 {
 		return nil, transientError{errors.New(serverErrorMessage(resp, detail,
@@ -352,6 +359,11 @@ func (cl *Client) do(ctx context.Context, vars map[string]any) (*queryData, erro
 	}
 	return out.Data, nil
 }
+
+// ErrQueryTimeout marks a query GitHub could not finish inside its 10s limit.
+// Re-sending the same document would time out again, so the caller is expected
+// to retry with a shorter window instead.
+var ErrQueryTimeout = errors.New("GitHub could not answer the query within its 10s limit")
 
 // rateLimitError ends the run on the first response that reports it. Unlike a
 // 5xx, an exhausted budget does not clear inside a few seconds of backoff, so

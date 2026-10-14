@@ -108,8 +108,6 @@ type prStats struct {
 	merged         int
 	closedUnmerged int
 	open           int
-	veryShort      int
-	totalLines     int
 }
 
 func (s prStats) resolved() int { return s.merged + s.closedUnmerged }
@@ -123,13 +121,6 @@ func (s prStats) mergeRate() float64 {
 	return float64(s.merged) / float64(s.resolved())
 }
 
-func (s prStats) averageSize() float64 {
-	if s.total == 0 {
-		return 0
-	}
-	return float64(s.totalLines) / float64(s.total)
-}
-
 func collectPRStats(prs []analysis.PullRequest) prStats {
 	stats := prStats{total: len(prs)}
 	for _, pr := range prs {
@@ -140,10 +131,6 @@ func collectPRStats(prs []analysis.PullRequest) prStats {
 			stats.closedUnmerged++
 		case pr.State == "OPEN":
 			stats.open++
-		}
-		stats.totalLines += pr.Size()
-		if pr.Size() < 10 {
-			stats.veryShort++
 		}
 	}
 	return stats

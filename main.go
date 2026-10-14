@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -113,15 +114,36 @@ func run() int {
 	since := analysis.Window(time.Now(), cfg.AnalysisWindow)
 	prog.Done(fmt.Sprintf("%d months, from %s", cfg.AnalysisWindow, since.Format(time.DateOnly)))
 
-	// Step 2 - fetch the contributor's public activity
+	// Step 2 - fetch the contributor's public activity, falling back to shorter
+	// windows when a prolific account pushes a request past GitHub's 10s limit
 	prog.Step("Fetch GitHub Activity")
-	contributor, err := analysis.NewClient(token).Fetch(context.Background(), username, since)
+	client := analysis.NewClient(token)
+	windows := fallbackWindows(cfg.AnalysisWindow)
+	var contributor *analysis.Contributor
+	for i, months := range windows {
+		if i > 0 {
+			log.Printf("Fetcher -> retrying with a %d-month window after the %d-month one timed out: %v",
+				months, cfg.AnalysisWindow, err)
+			// The metrics read the window from cfg (the consistency denominator),
+			// so it must name the window the data was actually fetched for.
+			cfg.AnalysisWindow = months
+			since = analysis.Window(time.Now(), months)
+		}
+		contributor, err = client.Fetch(context.Background(), username, since)
+		if !errors.Is(err, analysis.ErrQueryTimeout) {
+			break
+		}
+	}
 	if err != nil {
 		log.Print(err)
 		return exitError
 	}
-	prog.Done(fmt.Sprintf("%d PRs, %d comments, %d issues, %d reviews",
-		len(contributor.PullRequests), len(contributor.IssueComments), len(contributor.Issues), contributor.ReviewsGiven))
+	fetched := fmt.Sprintf("%d PRs, %d comments, %d issues, %d reviews",
+		len(contributor.PullRequests), len(contributor.IssueComments), len(contributor.Issues), contributor.ReviewsGiven)
+	if cfg.AnalysisWindow != windows[0] {
+		fetched += fmt.Sprintf(", window reduced to %d months", cfg.AnalysisWindow)
+	}
+	prog.Done(fetched)
 
 	// Step 3 - evaluate every metric, one progress step each
 	result := metrics.Evaluate(contributor, cfg, prog)
@@ -147,6 +169,20 @@ func run() int {
 		return exitNeedsReview
 	}
 	return exitPassed
+}
+
+// fallbackWindows lists the windows to try, in order: the requested one, then
+// each shorter step. Only the calendar, the issue search and (through the early
+// stop on PR pagination) the number of PR pages shrink with the window, but on
+// an account busy enough to time out that is often the margin.
+func fallbackWindows(months int) []int {
+	windows := []int{months}
+	for _, step := range []int{6, 3, 1} {
+		if step < months {
+			windows = append(windows, step)
+		}
+	}
+	return windows
 }
 
 // writeReport renders the HTML report into path.

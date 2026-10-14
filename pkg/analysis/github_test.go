@@ -185,6 +185,36 @@ func TestFetchPaginates(t *testing.T) {
 	assert.Equal(t, 5, totalRequests, "each section should be its own request")
 }
 
+// TestFetchStopsPagingBeforeTheWindow pins the early stop: PRs come newest
+// first, so a page that already reaches before the window ends the pagination
+// even when GitHub says there is more.
+func TestFetchStopsPagingBeforeTheWindow(t *testing.T) {
+	const prPage = `{"data":{"user":{"login":"octocat","createdAt":"2020-01-01T00:00:00Z",
+		"followers":{"totalCount":1},"repositories":{"totalCount":1},
+		"contributionsCollection":{"contributionCalendar":{"weeks":[]},
+		"pullRequestReviewContributions":{"totalCount":0}},
+		"pullRequests":{"totalCount":3,
+		"nodes":[{"state":"OPEN","createdAt":"2025-06-01T00:00:00Z"},
+		{"state":"OPEN","createdAt":"2024-06-01T00:00:00Z"}],
+		"pageInfo":{"hasNextPage":true,"endCursor":"CURSOR-1"}}},
+		"issueSearch":{"issueCount":0,"nodes":[]},
+		"rateLimit":{"remaining":100,"resetAt":"2026-01-01T00:00:00Z","used":1}}}`
+
+	client, requests := stubAPI(t, prPage)
+
+	c, err := client.Fetch(context.Background(), "octocat", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err, "fetching should succeed")
+
+	var prRequests int
+	for _, vars := range *requests {
+		if vars["withPRs"] == true {
+			prRequests++
+		}
+	}
+	assert.Equal(t, 1, prRequests, "a page reaching before the window should end the PR pagination")
+	assert.Len(t, c.PullRequests, 1, "only the PR inside the window should be kept")
+}
+
 // TestFetchRequestsOneSectionPerRequest pins the split itself: a section's
 // @include flag must be on for exactly the request that needs it, otherwise the
 // combined document comes back and the 10s timeout returns.
@@ -300,13 +330,13 @@ func TestFetchStopsOnQueryTimeout(t *testing.T) {
 			name:        "A 502 is a query timeout and is not retried",
 			status:      http.StatusBadGateway,
 			expectCalls: 1,
-			expectedErr: "could not answer the query within its 10s limit (HTTP 502)",
+			expectedErr: "could not answer the query within its 10s limit: HTTP 502",
 		},
 		{
 			name:        "A 504 is the same",
 			status:      http.StatusGatewayTimeout,
 			expectCalls: 1,
-			expectedErr: "could not answer the query within its 10s limit (HTTP 504)",
+			expectedErr: "could not answer the query within its 10s limit: HTTP 504",
 		},
 	}
 
@@ -328,6 +358,7 @@ func TestFetchStopsOnQueryTimeout(t *testing.T) {
 
 			require.Error(t, err, "the failure should be surfaced")
 			assert.Contains(t, err.Error(), tc.expectedErr, "error message mismatch")
+			assert.ErrorIs(t, err, ErrQueryTimeout, "the caller needs to tell a timeout apart to shrink the window")
 			assert.Contains(t, err.Error(), "request B1A2:3C4D:5E6F",
 				"the request ID is the only handle GitHub support has on a recurring 5xx")
 			assert.NotContains(t, err.Error(), "\n", "the body should be flattened onto one progress line")

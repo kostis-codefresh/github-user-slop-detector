@@ -48,8 +48,6 @@ Metric Details
       Merged: 26
       Closed without merge: 5
       Open: 1
-      Avg PR size: 2005.3 lines
-      Very short PRs (<10 lines): 11
   ▸ ...
 
 Recommendations

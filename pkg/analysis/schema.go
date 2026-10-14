@@ -76,8 +76,6 @@ type prNode struct {
 	Merged    bool       `json:"merged"`
 	CreatedAt time.Time  `json:"createdAt"`
 	MergedAt  *time.Time `json:"mergedAt"`
-	Additions int        `json:"additions"`
-	Deletions int        `json:"deletions"`
 	MergedBy  *struct {
 		Login string `json:"login"`
 	} `json:"mergedBy"`

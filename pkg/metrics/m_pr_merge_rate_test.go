@@ -82,8 +82,6 @@ func TestPRMergeRateDetail(t *testing.T) {
 			"Merged: 1",
 			"Closed without merge: 1",
 			"Open: 1",
-			"Avg PR size: 29.7 lines",
-			"Very short PRs (<10 lines): 1",
 		)}, detail.Blocks, "PR breakdown mismatch")
 	})
 

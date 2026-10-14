@@ -17,8 +17,6 @@
             "merged": true,
             "createdAt": "2025-06-01T00:00:00Z",
             "mergedAt": "2025-06-02T00:00:00Z",
-            "additions": 100,
-            "deletions": 20,
             "mergedBy": { "login": "maintainer-a" },
             "repository": {
               "owner": { "login": "org" },
@@ -31,8 +29,6 @@
             "merged": false,
             "createdAt": "2025-07-01T00:00:00Z",
             "mergedAt": null,
-            "additions": 5,
-            "deletions": 1,
             "mergedBy": null,
             "repository": {
               "owner": { "login": "org" },
@@ -45,8 +41,6 @@
             "merged": true,
             "createdAt": "2025-08-01T00:00:00Z",
             "mergedAt": "2025-08-02T00:00:00Z",
-            "additions": 10,
-            "deletions": 0,
             "mergedBy": null,
             "repository": null
           },
@@ -55,8 +49,6 @@
             "merged": false,
             "createdAt": "2020-01-01T00:00:00Z",
             "mergedAt": null,
-            "additions": 1,
-            "deletions": 1,
             "mergedBy": null,
             "repository": {
               "owner": { "login": "org" },

@@ -56,8 +56,6 @@ type PullRequest struct {
 	Merged    bool
 	CreatedAt time.Time
 	MergedAt  time.Time
-	Additions int
-	Deletions int
 	MergedBy  string //empty when the merger is unknown or the account was deleted
 	RepoOwner string
 	RepoName  string
@@ -66,9 +64,6 @@ type PullRequest struct {
 
 // Repo returns the owner/name identifier of the repository the PR targets.
 func (pr PullRequest) Repo() string { return pr.RepoOwner + "/" + pr.RepoName }
-
-// Size returns the number of lines the PR touched.
-func (pr PullRequest) Size() int { return pr.Additions + pr.Deletions }
 
 // IssueComment is a comment the contributor left, with the reactions it drew.
 type IssueComment struct {

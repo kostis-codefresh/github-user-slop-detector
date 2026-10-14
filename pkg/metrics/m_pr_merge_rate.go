@@ -3,7 +3,6 @@ package metrics
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/kostis-codefresh/github-user-slop-detector/pkg/analysis"
 )
@@ -57,10 +56,6 @@ func (m *PRMergeRate) Detail(c *analysis.Contributor, _ Config) Detail {
 		fmt.Sprintf("Merged: %d", stats.merged),
 		fmt.Sprintf("Closed without merge: %d", stats.closedUnmerged),
 		fmt.Sprintf("Open: %d", stats.open),
-		"Avg PR size: " + strconv.FormatFloat(stats.averageSize(), 'f', 1, 64) + " lines",
-	}
-	if stats.veryShort > 0 {
-		items = append(items, fmt.Sprintf("Very short PRs (<10 lines): %d", stats.veryShort))
 	}
 	return Detail{
 		Icon:    IconPRs,

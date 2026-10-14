@@ -64,8 +64,6 @@ query ContributorAnalysis(
         merged
         mergedAt
         createdAt
-        additions
-        deletions
         mergedBy { login }
         repository {
           owner { login }
