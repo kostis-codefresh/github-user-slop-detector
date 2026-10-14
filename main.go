@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -118,30 +117,16 @@ func run() int {
 	// windows when a prolific account pushes a request past GitHub's 10s limit
 	prog.Step("Fetch GitHub Activity")
 	client := analysis.NewClient(token)
-	windows := fallbackWindows(cfg.AnalysisWindow)
-	var contributor *analysis.Contributor
-	for i, months := range windows {
-		if i > 0 {
-			log.Printf("Fetcher -> retrying with a %d-month window after the %d-month one timed out: %v",
-				months, cfg.AnalysisWindow, err)
-			// The metrics read the window from cfg (the consistency denominator),
-			// so it must name the window the data was actually fetched for.
-			cfg.AnalysisWindow = months
-			since = analysis.Window(time.Now(), months)
-		}
-		contributor, err = client.Fetch(context.Background(), username, since)
-		if !errors.Is(err, analysis.ErrQueryTimeout) {
-			break
-		}
-	}
+	contributor, months, err := client.FetchWithFallback(context.Background(), username, cfg.AnalysisWindow)
 	if err != nil {
 		log.Print(err)
 		return exitError
 	}
 	fetched := fmt.Sprintf("%d PRs, %d comments, %d issues, %d reviews",
 		len(contributor.PullRequests), len(contributor.IssueComments), len(contributor.Issues), contributor.ReviewsGiven)
-	if cfg.AnalysisWindow != windows[0] {
-		fetched += fmt.Sprintf(", window reduced to %d months", cfg.AnalysisWindow)
+	if months != cfg.AnalysisWindow {
+		fetched += fmt.Sprintf(", window reduced to %d months", months)
+		cfg.AnalysisWindow = months
 	}
 	prog.Done(fetched)
 
@@ -171,20 +156,6 @@ func run() int {
 	return exitPassed
 }
 
-// fallbackWindows lists the windows to try, in order: the requested one, then
-// each shorter step. Only the calendar, the issue search and (through the early
-// stop on PR pagination) the number of PR pages shrink with the window, but on
-// an account busy enough to time out that is often the margin.
-func fallbackWindows(months int) []int {
-	windows := []int{months}
-	for _, step := range []int{6, 3, 1} {
-		if step < months {
-			windows = append(windows, step)
-		}
-	}
-	return windows
-}
-
 // writeReport renders the HTML report into path.
 func writeReport(path string, result metrics.Report, mode report.DetailMode) error {
 	f, err := os.Create(path)
@@ -192,7 +163,7 @@ func writeReport(path string, result metrics.Report, mode report.DetailMode) err
 		return fmt.Errorf("create %s: %w", path, err)
 	}
 	defer f.Close() //nolint:errcheck // Sync below reports the write errors
-	if err := report.Write(f, result, mode); err != nil {
+	if err := report.Write(f, result, mode, ""); err != nil {
 		return err
 	}
 	return f.Sync()

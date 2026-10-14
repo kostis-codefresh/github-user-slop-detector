@@ -11,6 +11,7 @@ type graphQLResponse struct {
 }
 
 type graphQLError struct {
+	Type    string `json:"type"`
 	Message string `json:"message"`
 }
 

@@ -19,6 +19,12 @@ var templateFS embed.FS
 
 var reportTemplate = template.Must(template.ParseFS(templateFS, "templates/report.html.tpl"))
 
+// Logo is the project logo. The report inlines it so the file stays portable;
+// the web app serves the same bytes as its favicon, so there is one copy.
+//
+//go:embed templates/logo.svg
+var Logo []byte
+
 // DetailMode controls how much of the Metric Details section is rendered.
 type DetailMode string
 
@@ -71,10 +77,14 @@ type view struct {
 	Recommendations []string
 	WindowStart     string
 	WindowEnd       string
+	GeneratedAt     string
+	Logo            template.HTML
+	HomeURL         string
 }
 
-// Write renders the report as HTML.
-func Write(w io.Writer, r metrics.Report, mode DetailMode) error {
+// Write renders the report as HTML. A non-empty homeURL adds a link back to
+// it, for the web app; the CLI passes "" because a local file has no home page.
+func Write(w io.Writer, r metrics.Report, mode DetailMode, homeURL string) error {
 	v := view{
 		StatusText:     "Needs Review",
 		StatusClass:    "needs-review",
@@ -89,6 +99,10 @@ func Write(w io.Writer, r metrics.Report, mode DetailMode) error {
 		Recommendations: r.Recommendations,
 		WindowStart:     r.WindowStart.Format("2006-01-02"),
 		WindowEnd:       r.WindowEnd.Format("2006-01-02"),
+		// WindowEnd is when the data was fetched, so a cached report shows its age.
+		GeneratedAt: r.WindowEnd.Format("02 Jan 2006 15:04 MST"),
+		Logo:        template.HTML(Logo), // our own embedded SVG, so trusting it as markup is safe
+		HomeURL:     homeURL,
 	}
 	if r.Passed {
 		v.StatusText, v.StatusClass = "Passed", "passed"

@@ -358,7 +358,7 @@ func TestFetchStopsOnQueryTimeout(t *testing.T) {
 
 			require.Error(t, err, "the failure should be surfaced")
 			assert.Contains(t, err.Error(), tc.expectedErr, "error message mismatch")
-			assert.ErrorIs(t, err, ErrQueryTimeout, "the caller needs to tell a timeout apart to shrink the window")
+			require.ErrorIs(t, err, ErrQueryTimeout, "the caller needs to tell a timeout apart to shrink the window")
 			assert.Contains(t, err.Error(), "request B1A2:3C4D:5E6F",
 				"the request ID is the only handle GitHub support has on a recurring 5xx")
 			assert.NotContains(t, err.Error(), "\n", "the body should be flattened onto one progress line")
@@ -391,12 +391,21 @@ func TestFetchErrors(t *testing.T) {
 		status      int
 		body        string
 		expectedErr string
+		expectedIs  error
 	}{
 		{
 			name:        "Unknown user",
 			status:      http.StatusOK,
 			body:        `{"data":{"user":null,"issueSearch":{"nodes":[]}}}`,
 			expectedErr: "user not found: ghost",
+			expectedIs:  ErrUserNotFound,
+		},
+		{
+			name:        "Unknown user reported as a GraphQL error",
+			status:      http.StatusOK,
+			body:        `{"data":{"user":null},"errors":[{"type":"NOT_FOUND","path":["user"],"message":"Could not resolve to a User with the login of 'ghost'."}]}`,
+			expectedErr: "Could not resolve to a User",
+			expectedIs:  ErrUserNotFound,
 		},
 		{
 			name:        "Rejected token",
@@ -427,6 +436,29 @@ func TestFetchErrors(t *testing.T) {
 
 			require.Error(t, err, "the failure should be surfaced")
 			assert.Contains(t, err.Error(), tc.expectedErr, "error message mismatch")
+			if tc.expectedIs != nil {
+				assert.ErrorIs(t, err, tc.expectedIs, "the web app maps this error to a 404")
+			}
+		})
+	}
+}
+
+func TestFallbackWindows(t *testing.T) {
+	testCases := []struct {
+		name     string
+		months   int
+		expected []int
+	}{
+		{name: "Default window falls back through every step", months: 12, expected: []int{12, 6, 3, 1}},
+		{name: "A window on a step skips that step", months: 6, expected: []int{6, 3, 1}},
+		{name: "A window between steps keeps the smaller ones", months: 4, expected: []int{4, 3, 1}},
+		{name: "A short window falls back to one month", months: 2, expected: []int{2, 1}},
+		{name: "One month has nothing to fall back to", months: 1, expected: []int{1}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, fallbackWindows(tc.months), "fallback sequence mismatch")
 		})
 	}
 }

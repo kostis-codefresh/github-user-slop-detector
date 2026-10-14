@@ -82,10 +82,11 @@ func sampleReport() metrics.Report {
 
 func TestWrite(t *testing.T) {
 	testCases := []struct {
-		name   string
-		mode   DetailMode
-		report func() metrics.Report
-		golden string
+		name    string
+		mode    DetailMode
+		report  func() metrics.Report
+		homeURL string
+		golden  string
 	}{
 		{name: "Happy Path scenario", mode: DetailsAll, report: sampleReport, golden: "report-all.golden.html"},
 		{name: "Only failed details", mode: DetailsFailed, report: sampleReport, golden: "report-failed.golden.html"},
@@ -112,13 +113,20 @@ func TestWrite(t *testing.T) {
 			},
 			golden: "report-limited-data.golden.html",
 		},
+		{
+			name:    "Links back to the web app's home page",
+			mode:    DetailsNone,
+			report:  sampleReport,
+			homeURL: "/",
+			golden:  "report-home-link.golden.html",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			var buf bytes.Buffer
 
-			err := Write(&buf, tc.report(), tc.mode)
+			err := Write(&buf, tc.report(), tc.mode, tc.homeURL)
 			require.NoError(t, err, "rendering the report should not fail")
 
 			assertGolden(t, tc.golden, buf.String())
@@ -129,7 +137,7 @@ func TestWrite(t *testing.T) {
 func TestWriteRendersInactiveMetricsAsDashes(t *testing.T) {
 	var buf bytes.Buffer
 
-	require.NoError(t, Write(&buf, sampleReport(), DetailsNone), "rendering should not fail")
+	require.NoError(t, Write(&buf, sampleReport(), DetailsNone, ""), "rendering should not fail")
 
 	assert.Contains(t, buf.String(), ">Repo History Min PRs</a>", "the inactive metric still gets a row")
 	assert.Contains(t, buf.String(), `<tr class="status-inactive">`, "an inactive metric is tinted as inactive, not as a pass or a failure")
@@ -139,7 +147,7 @@ func TestWriteRendersInactiveMetricsAsDashes(t *testing.T) {
 func TestWriteHidesTheNewAccountNoteWhenNotNew(t *testing.T) {
 	var buf bytes.Buffer
 
-	require.NoError(t, Write(&buf, sampleReport(), DetailsNone), "rendering should not fail")
+	require.NoError(t, Write(&buf, sampleReport(), DetailsNone, ""), "rendering should not fail")
 
 	assert.NotContains(t, buf.String(), "new GitHub account", "an established account gets no new-account note")
 }

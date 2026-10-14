@@ -5,6 +5,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 
+COPY pkg pkg
 COPY ui ui
 COPY cmd/contributor-report-web cmd/contributor-report-web
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/contributor-report-web ./cmd/contributor-report-web

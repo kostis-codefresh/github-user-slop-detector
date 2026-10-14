@@ -55,7 +55,7 @@ func (cl *Client) Fetch(ctx context.Context, username string, since time.Time) (
 		return nil, err
 	}
 	if profile.User == nil {
-		return nil, fmt.Errorf("user not found: %s", username)
+		return nil, fmt.Errorf("%w: %s", ErrUserNotFound, username)
 	}
 	c := newContributor(profile, since)
 
@@ -116,6 +116,43 @@ func (cl *Client) Fetch(ctx context.Context, username string, since time.Time) (
 	c.PullRequests = kept
 
 	return c, nil
+}
+
+// FetchWithFallback fetches the last months of activity, falling back to
+// shorter windows when a prolific account pushes a request past GitHub's 10s
+// limit. It returns the window, in months, that the data actually covers: the
+// metrics read the window from their config (the consistency denominator), so
+// the caller must use this one rather than the one it asked for.
+func (cl *Client) FetchWithFallback(ctx context.Context, username string, months int) (*Contributor, int, error) {
+	var err error
+	previous := months
+	for i, window := range fallbackWindows(months) {
+		if i > 0 {
+			log.Printf("Fetcher -> retrying with a %d-month window after the %d-month one timed out: %v",
+				window, previous, err)
+			previous = window
+		}
+		var c *Contributor
+		c, err = cl.Fetch(ctx, username, Window(time.Now(), window))
+		if !errors.Is(err, ErrQueryTimeout) {
+			return c, window, err
+		}
+	}
+	return nil, 0, err
+}
+
+// fallbackWindows lists the windows to try, in order: the requested one, then
+// each shorter step. Only the calendar, the issue search and (through the early
+// stop on PR pagination) the number of PR pages shrink with the window, but on
+// an account busy enough to time out that is often the margin.
+func fallbackWindows(months int) []int {
+	windows := []int{months}
+	for _, step := range []int{6, 3, 1} {
+		if step < months {
+			windows = append(windows, step)
+		}
+	}
+	return windows
 }
 
 // reachedBefore reports whether the page's oldest PR predates since.
@@ -345,12 +382,19 @@ func (cl *Client) do(ctx context.Context, vars map[string]any) (*queryData, erro
 	}
 	if len(out.Errors) > 0 {
 		messages := make([]string, 0, len(out.Errors))
+		notFound := false
 		for _, e := range out.Errors {
 			messages = append(messages, e.Message)
+			notFound = notFound || e.Type == "NOT_FOUND"
 		}
 		joined := strings.Join(messages, "; ")
 		if mentionsRateLimit(joined) {
 			return nil, &rateLimitError{Remaining: remaining, ResetAt: resetAt, Detail: joined}
+		}
+		// GitHub answers an unknown login with a NOT_FOUND error rather than a
+		// null user, and the user is the only node this query looks up.
+		if notFound {
+			return nil, fmt.Errorf("%w: %s", ErrUserNotFound, joined)
 		}
 		return nil, fmt.Errorf("GraphQL: %s", joined)
 	}
@@ -364,6 +408,10 @@ func (cl *Client) do(ctx context.Context, vars map[string]any) (*queryData, erro
 // Re-sending the same document would time out again, so the caller is expected
 // to retry with a shorter window instead.
 var ErrQueryTimeout = errors.New("GitHub could not answer the query within its 10s limit")
+
+// ErrUserNotFound marks a login GitHub has no user for, so the web app can tell
+// a typo apart from a failed fetch.
+var ErrUserNotFound = errors.New("user not found")
 
 // rateLimitError ends the run on the first response that reports it. Unlike a
 // 5xx, an exhausted budget does not clear inside a few seconds of backoff, so

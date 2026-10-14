@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Contributor Report</title>
+    <link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"></script>
     <style>
         body {
             margin: 0;
-            padding-top: 25vh;
+            /* Just enough to clear the Login button, which would overlap the card at phone width. */
+            padding-top: 3rem;
             display: flex;
             align-items: flex-start;
             justify-content: center;
@@ -15,16 +18,16 @@
             color: #1f2328;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
         }
+        .column { width: 60%; margin: 1rem; }
         .card {
-            width: 100%;
-            max-width: 28rem;
-            margin: 1rem;
+            margin-bottom: 1rem;
             padding: 2rem;
             background: #fff;
             border: 1px solid #d0d7de;
             border-radius: 8px;
         }
-        h1 { margin: 0 0 0.5rem; font-size: 1.5rem; }
+        h1 { display: flex; align-items: center; gap: 0.75rem; margin: 0 0 0.5rem; font-size: 1.5rem; }
+        h1 img { width: 2.5rem; height: 2.5rem; }
         p { margin: 0 0 1.5rem; color: #59636e; }
         .search { display: flex; gap: 0.5rem; }
         input {
@@ -53,6 +56,29 @@
             background: #24292f;
         }
         .login svg { width: 1rem; height: 1rem; fill: currentColor; }
+        h2 { margin: 0 0 1rem; font-size: 1.125rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+        th { text-align: left; font-weight: 600; color: #59636e; }
+        th, td { padding: 0.5rem 0; border-bottom: 1px solid #d8dee4; }
+        th:last-child, td:last-child { text-align: right; }
+        tr:last-child td { border-bottom: none; }
+        td:last-child { color: #59636e; white-space: nowrap; }
+        a { color: #0969da; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        button:disabled { opacity: 0.6; cursor: wait; }
+        /* htmx adds htmx-request to the form while the analysis runs. A stale error
+           from the previous attempt is hidden for that time. */
+        .status { margin: 0.75rem 0 0; font-size: 0.875rem; }
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator { display: block; }
+        .htmx-request #analyze-result { display: none; }
+        .error { color: #cf222e; }
+        td.empty { color: #59636e; text-align: left; }
+        /* At phone width the table's unwrapped rows need the room, or the cards lose their side gutter. */
+        @media (max-width: 30rem) {
+            .column { width: 100%; }
+            .card { padding: 1rem; }
+        }
     </style>
 </head>
 <body>
@@ -63,13 +89,35 @@
             Login
         </button>
     </header>
-    <main class="card">
-        <h1>Contributor Report</h1>
-        <p>Analyse a GitHub user's public activity.</p>
-        <div class="search">
-            <input type="text" name="username" placeholder="GitHub username" aria-label="GitHub username">
-            <button type="button">Analyze</button>
-        </div>
-    </main>
+    <div class="column">
+        <main class="card">
+            <h1><img src="/img/logo.svg" alt="">Contributor Report</h1>
+            <p>Analyse a GitHub user's public activity.</p>
+            <!-- With htmx the analysis runs behind the indicator and the server answers with an
+                 HX-Redirect to the report; without it this is a plain GET that redirects there. -->
+            <form action="/" method="get" hx-get="/" hx-target="#analyze-result" hx-disabled-elt="find button">
+                <div class="search">
+                    <input type="text" name="username" placeholder="GitHub username" aria-label="GitHub username" required>
+                    <button type="submit">Analyze</button>
+                </div>
+                <p class="status htmx-indicator">Analyzing&hellip; this can take up to a minute.</p>
+                <div id="analyze-result"></div>
+            </form>
+        </main>
+        <section class="card">
+            <h2>Previous reports</h2>
+            <table>
+                <thead>
+                    <tr><th>Username</th><th>Report created</th></tr>
+                </thead>
+                <tbody>
+                    {{range .Reports}}<tr><td><a href="/{{.Username}}">{{.Username}}</a></td><td>{{.WindowEnd.Format "02 Jan 2006 15:04 MST"}}</td></tr>
+                    {{else}}<tr><td class="empty" colspan="2">No reports yet.</td></tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </section>
+    </div>
 </body>
 </html>
+{{define "analyze-error"}}<p class="status error">{{.Error}}</p>{{end}}
