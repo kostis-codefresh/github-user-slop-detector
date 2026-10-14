@@ -63,8 +63,10 @@ metric name links to the upstream page explaining how its number is derived, and
 
 ### Prerequisites
 
-- A GitHub token in `GH_TOKEN`. The GitHub GraphQL API this tool uses does not accept anonymous requests, so the
-  token is required rather than just a way to raise rate limits.
+- For the CLI, a GitHub token in `GH_TOKEN`. The GitHub GraphQL API this tool uses does not accept anonymous
+  requests, so the token is required rather than just a way to raise rate limits.
+- For the web app, a [GitHub OAuth app](https://github.com/settings/developers) whose callback URL is
+  `<APP_BASE_URL>/callback`. Users log in with it and their own token runs their analyses.
 - Go 1.23+ to build it, or Docker.
 
 ### Building
@@ -77,20 +79,30 @@ make build-cli    # the CLI only
 
 ### Web app
 
+| Variable | Purpose |
+|---|---|
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | The OAuth app. Without both, nobody can log in and the app is read-only |
+| `APP_BASE_URL` | Where the app is served, default `http://localhost:8080`. GitHub redirects back to `<APP_BASE_URL>/callback` |
+| `SESSION_KEY` | Secret for the session cookie. Without it a random one is used, so logins do not survive a restart |
+| `PORT` | Listen port, default `8080` |
+
 ```bash
-# Serve on :8080 (set PORT to change it)
-GH_TOKEN=$(gh auth token) ./dist/contributor-report-web
+# Serve on :8080
+GITHUB_CLIENT_ID=... GITHUB_CLIENT_SECRET=... SESSION_KEY=... ./dist/contributor-report-web
 
 # Run it straight from source
-GH_TOKEN=$(gh auth token) go run ./cmd/contributor-report-web
+GITHUB_CLIENT_ID=... GITHUB_CLIENT_SECRET=... go run ./cmd/contributor-report-web
 
 # Or the published container image
-docker run -e GH_TOKEN=$(gh auth token) -p 8080:8080 ghcr.io/kostis-codefresh/github-user-slop-detector-web
+docker run -e GITHUB_CLIENT_ID -e GITHUB_CLIENT_SECRET -e SESSION_KEY -e APP_BASE_URL \
+    -p 8080:8080 ghcr.io/kostis-codefresh/github-user-slop-detector-web
 ```
 
+Anyone can view the home page and the cached reports. To analyze a username, log in with GitHub from the banner;
+only accounts whose email is an `@octopus.com` address are allowed. Logout revokes the app's access on GitHub.
 Enter a username on the home page, or open `/report/<username>` directly. The last 20 reports are kept in memory
-and listed on the home page; `/health` is a liveness check. Without `GH_TOKEN` the app still starts, in read-only
-mode: the Analyze button is disabled and a banner says so.
+and listed on the home page. `/health` is a liveness check that also reports which OAuth settings are missing and
+the `APP_BASE_URL` in use. Without the OAuth settings the app still starts, read-only, with a red banner.
 
 ### CLI
 
@@ -166,8 +178,8 @@ For each username (from the web form or the CLI argument), the tool will:
 ## Project layout
 
 ```
-cmd/contributor-report-web/   the web app: handlers and the in-memory report cache
-ui/                           the web app's embedded home page
+cmd/contributor-report-web/   the web app: handlers, GitHub login and the in-memory report cache
+ui/                           the web app's embedded home and login pages
 cmd/contributor-report/       the CLI: flag parsing and the pipeline
 pkg/analysis/                 the Contributor data model and the GitHub GraphQL fetcher
 pkg/metrics/                  the Metric interface, the registry, one file per metric, the spam patterns
