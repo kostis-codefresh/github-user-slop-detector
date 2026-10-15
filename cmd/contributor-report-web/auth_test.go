@@ -136,14 +136,25 @@ func TestCallback(t *testing.T) {
 			expectedCode: http.StatusSeeOther, loggedIn: true,
 		},
 		{
-			name:         "Falls back to the first verified email",
-			emails:       []githubEmail{{Email: "jane@octopus.com", Verified: true}},
+			name: "Accepts a verified octopus secondary email",
+			emails: []githubEmail{
+				{Email: "jane@example.com", Primary: true, Verified: true},
+				{Email: "jane@octopus.com", Verified: true},
+			},
 			expectedCode: http.StatusSeeOther, loggedIn: true,
 		},
 		{
 			name:         "Problematic scenario",
 			emails:       []githubEmail{{Email: "jane@example.com", Primary: true, Verified: true}},
-			expectedCode: http.StatusForbidden, expectedBody: "Access Denied: Your email (jane@example.com) is not a @octopus.com address.",
+			expectedCode: http.StatusForbidden, expectedBody: "Access Denied: None of your verified emails (jane@example.com) is a @octopus.com address.",
+		},
+		{
+			name: "An unverified octopus secondary does not count",
+			emails: []githubEmail{
+				{Email: "jane@example.com", Primary: true, Verified: true},
+				{Email: "jane@octopus.com"},
+			},
+			expectedCode: http.StatusForbidden, expectedBody: "Access Denied: None of your verified emails (jane@example.com) is a @octopus.com address.",
 		},
 		{
 			name:         "An unverified octopus email does not count",

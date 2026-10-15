@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/gorilla/sessions"
@@ -217,14 +218,20 @@ func (a *githubAuth) handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	client := a.oauth.Client(ctx, token)
 
-	email, err := a.getPrimaryEmail(client)
+	emails, err := a.getVerifiedEmails(client)
 	if err != nil {
 		fail(http.StatusBadGateway, "Failed to fetch GitHub email: "+err.Error())
 		return
 	}
-	if !strings.HasSuffix(strings.ToLower(email), allowedEmailDomain) {
-		log.Printf("login denied for %s", email)
-		fail(http.StatusForbidden, fmt.Sprintf("Access Denied: Your email (%s) is not a %s address.", email, allowedEmailDomain))
+	// Any verified address counts, not just the primary: many people keep a
+	// personal primary and add their work address as a secondary.
+	allowed := slices.ContainsFunc(emails, func(e string) bool {
+		return strings.HasSuffix(strings.ToLower(e), allowedEmailDomain)
+	})
+	if !allowed {
+		list := strings.Join(emails, ", ")
+		log.Printf("login denied for %s", list)
+		fail(http.StatusForbidden, fmt.Sprintf("Access Denied: None of your verified emails (%s) is a %s address.", list, allowedEmailDomain))
 		return
 	}
 
@@ -316,27 +323,24 @@ func (a *githubAuth) getJSON(client *http.Client, path string, v any) error {
 	return json.NewDecoder(resp.Body).Decode(v)
 }
 
-func (a *githubAuth) getPrimaryEmail(client *http.Client) (string, error) {
+// getVerifiedEmails returns every verified address on the account. Unverified
+// ones are skipped: anyone can add an address they do not own.
+func (a *githubAuth) getVerifiedEmails(client *http.Client) ([]string, error) {
 	var emails []githubEmail
 	if err := a.getJSON(client, "/user/emails", &emails); err != nil {
-		return "", err
+		return nil, err
 	}
 
-	// Find the primary, verified email
-	for _, e := range emails {
-		if e.Primary && e.Verified {
-			return e.Email, nil
-		}
-	}
-
-	// Fallback to first verified email if primary isn't marked explicitly
+	var verified []string
 	for _, e := range emails {
 		if e.Verified {
-			return e.Email, nil
+			verified = append(verified, e.Email)
 		}
 	}
-
-	return "", fmt.Errorf("no verified email found")
+	if len(verified) == 0 {
+		return nil, fmt.Errorf("no verified email found")
+	}
+	return verified, nil
 }
 
 func (a *githubAuth) getUsername(client *http.Client) (string, error) {
