@@ -23,6 +23,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Contributor Report - @{{.Username}}</title>
+<link rel="icon" href="{{.Favicon}}" type="image/svg+xml">
 <style>
 /* The palette and font stack match the web app's pages (ui/index.html), so a
    report reads as part of the same site; the CLI's file gets the same look. */

@@ -5,6 +5,7 @@ package report
 
 import (
 	"embed"
+	"encoding/base64"
 	"fmt"
 	"html/template"
 	"io"
@@ -79,6 +80,7 @@ type view struct {
 	WindowEnd       string
 	GeneratedAt     string
 	Logo            template.HTML
+	Favicon         template.URL
 	HomeURL         string
 }
 
@@ -102,7 +104,10 @@ func Write(w io.Writer, r metrics.Report, mode DetailMode, homeURL string) error
 		// WindowEnd is when the data was fetched, so a cached report shows its age.
 		GeneratedAt: r.WindowEnd.Format("02 Jan 2006"),
 		Logo:        template.HTML(Logo), // our own embedded SVG, so trusting it as markup is safe
-		HomeURL:     homeURL,
+		// A data: URI keeps the favicon working in a CLI report opened from disk.
+		// html/template would rewrite an untyped data: URL to #ZgotmplZ.
+		Favicon: template.URL("data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(Logo)),
+		HomeURL: homeURL,
 	}
 	if r.Passed {
 		v.StatusText, v.StatusClass = "Passed", "passed"
