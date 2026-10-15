@@ -64,6 +64,7 @@ func (cl *Client) Fetch(ctx context.Context, username string, since time.Time) (
 		return nil, err
 	}
 	c.RateLimit = toRateLimit(prFirst)
+	c.HiddenBySAML += prFirst.hiddenBySAML
 	prPage := userOf(prFirst).PullRequests
 	c.PullRequests = convertPRs(prPage.Nodes)
 	// The connection is ordered newest first, so once a page reaches a PR from
@@ -77,6 +78,7 @@ func (cl *Client) Fetch(ctx context.Context, username string, since time.Time) (
 			return nil, err
 		}
 		c.RateLimit = toRateLimit(next)
+		c.HiddenBySAML += next.hiddenBySAML
 		prPage = userOf(next).PullRequests
 		c.PullRequests = append(c.PullRequests, convertPRs(prPage.Nodes)...)
 	}
@@ -86,6 +88,7 @@ func (cl *Client) Fetch(ctx context.Context, username string, since time.Time) (
 		return nil, err
 	}
 	c.RateLimit = toRateLimit(commentFirst)
+	c.HiddenBySAML += commentFirst.hiddenBySAML
 	commentPage := userOf(commentFirst).IssueComments
 	c.IssueComments = convertComments(commentPage.Nodes)
 	for page := 1; page < maxPages && commentPage.PageInfo.HasNextPage; page++ {
@@ -95,6 +98,7 @@ func (cl *Client) Fetch(ctx context.Context, username string, since time.Time) (
 			return nil, err
 		}
 		c.RateLimit = toRateLimit(next)
+		c.HiddenBySAML += next.hiddenBySAML
 		commentPage = userOf(next).IssueComments
 		c.IssueComments = append(c.IssueComments, convertComments(commentPage.Nodes)...)
 	}
@@ -104,6 +108,7 @@ func (cl *Client) Fetch(ctx context.Context, username string, since time.Time) (
 		return nil, err
 	}
 	c.RateLimit = toRateLimit(search)
+	c.HiddenBySAML += search.hiddenBySAML
 	c.Issues = convertIssues(search.IssueSearch.Nodes)
 
 	// Only PRs are date-filtered; see the note on Contributor.IssueComments.
@@ -155,9 +160,15 @@ func fallbackWindows(months int) []int {
 	return windows
 }
 
-// reachedBefore reports whether the page's oldest PR predates since.
-func reachedBefore(nodes []prNode, since time.Time) bool {
-	return len(nodes) > 0 && nodes[len(nodes)-1].CreatedAt.Before(since)
+// reachedBefore reports whether the page's oldest PR predates since. A hidden
+// PR has no date, so the oldest one is the last that is not nil.
+func reachedBefore(nodes []*prNode, since time.Time) bool {
+	for i := len(nodes) - 1; i >= 0; i-- {
+		if nodes[i] != nil {
+			return nodes[i].CreatedAt.Before(since)
+		}
+	}
+	return false
 }
 
 // The @include flags in contributorQuery, one per section of the document.
@@ -208,6 +219,7 @@ func newContributor(d *queryData, since time.Time) *Contributor {
 		ActiveMonths: map[string]bool{},
 		ReviewsGiven: u.ContributionsCollection.PullRequestReviewContributions.TotalCount,
 		RateLimit:    toRateLimit(d),
+		HiddenBySAML: d.hiddenBySAML,
 		Since:        since,
 		Until:        time.Now().UTC(),
 	}
@@ -229,11 +241,12 @@ func toRateLimit(d *queryData) RateLimit {
 	return RateLimit{Remaining: d.RateLimit.Remaining, Used: d.RateLimit.Used, ResetAt: d.RateLimit.ResetAt}
 }
 
-func convertIssues(nodes []issueNode) []Issue {
+func convertIssues(nodes []*issueNode) []Issue {
 	var issues []Issue
 	for _, n := range nodes {
-		// Non-Issue nodes come back as empty objects; skip them.
-		if n.Typename != "Issue" {
+		// Non-Issue nodes come back as empty objects, and hidden ones as null;
+		// skip both.
+		if n == nil || n.Typename != "Issue" {
 			continue
 		}
 		issues = append(issues, Issue{
@@ -245,9 +258,12 @@ func convertIssues(nodes []issueNode) []Issue {
 	return issues
 }
 
-func convertPRs(nodes []prNode) []PullRequest {
+func convertPRs(nodes []*prNode) []PullRequest {
 	prs := make([]PullRequest, 0, len(nodes))
 	for _, n := range nodes {
+		if n == nil {
+			continue
+		}
 		pr := PullRequest{
 			State:     n.State,
 			Merged:    n.Merged,
@@ -269,9 +285,12 @@ func convertPRs(nodes []prNode) []PullRequest {
 	return prs
 }
 
-func convertComments(nodes []commentNode) []IssueComment {
+func convertComments(nodes []*commentNode) []IssueComment {
 	comments := make([]IssueComment, 0, len(nodes))
 	for _, n := range nodes {
+		if n == nil {
+			continue
+		}
 		comments = append(comments, IssueComment{CreatedAt: n.CreatedAt, Reactions: contents(n.Reactions.Nodes)})
 	}
 	return comments
@@ -380,13 +399,22 @@ func (cl *Client) do(ctx context.Context, vars map[string]any) (*queryData, erro
 	if err := json.Unmarshal(payload, &out); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
-	if len(out.Errors) > 0 {
-		messages := make([]string, 0, len(out.Errors))
-		notFound := false
-		for _, e := range out.Errors {
-			messages = append(messages, e.Message)
-			notFound = notFound || e.Type == "NOT_FOUND"
+	hidden := 0
+	messages := make([]string, 0, len(out.Errors))
+	notFound := false
+	for _, e := range out.Errors {
+		// A resource in an organization that enforces SAML single sign-on, which
+		// the token has not been authorized for, comes back as null next to this
+		// error while the rest of the data is intact. Failing on it would throw
+		// away a whole analysis over one organization's share of the activity.
+		if out.Data != nil && isSAMLBlocked(e) {
+			hidden++
+			continue
 		}
+		messages = append(messages, e.Message)
+		notFound = notFound || e.Type == "NOT_FOUND"
+	}
+	if len(messages) > 0 {
 		joined := strings.Join(messages, "; ")
 		if mentionsRateLimit(joined) {
 			return nil, &rateLimitError{Remaining: remaining, ResetAt: resetAt, Detail: joined}
@@ -401,7 +429,15 @@ func (cl *Client) do(ctx context.Context, vars map[string]any) (*queryData, erro
 	if out.Data == nil {
 		return nil, fmt.Errorf("GraphQL returned no data")
 	}
+	if hidden > 0 {
+		log.Printf("Fetcher -> GitHub withheld %d resource(s) because of an organization's SAML enforcement", hidden)
+	}
+	out.Data.hiddenBySAML = hidden
 	return out.Data, nil
+}
+
+func isSAMLBlocked(e graphQLError) bool {
+	return e.Type == "FORBIDDEN" && strings.Contains(e.Message, "SAML enforcement")
 }
 
 // ErrQueryTimeout marks a query GitHub could not finish inside its 10s limit.

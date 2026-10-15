@@ -114,6 +114,16 @@ func TestWrite(t *testing.T) {
 			golden: "report-limited-data.golden.html",
 		},
 		{
+			name: "Notes the activity hidden by SAML enforcement",
+			mode: DetailsNone,
+			report: func() metrics.Report {
+				r := sampleReport()
+				r.HiddenBySAML = 3
+				return r
+			},
+			golden: "report-saml-hidden.golden.html",
+		},
+		{
 			name:    "Links back to the web app's home page",
 			mode:    DetailsNone,
 			report:  sampleReport,

@@ -380,6 +380,7 @@ footer {
 <p class="verdict verdict-{{.StatusClass}}">{{if eq .StatusClass "passed"}}✅{{else}}⚠️{{end}} {{.StatusText}} ({{.PassedCount}}/{{.TotalCount}} metrics passed)</p>
 {{if .NewAccountNote}}<p class="note"><strong>Note:</strong> This is a new GitHub account (&lt; {{.NewAccountDays}} days old). Limited history is available for evaluation.</p>
 {{end}}{{if .LimitedDataNote}}<p class="note"><strong>Note:</strong> Limited contribution data available. Results may be affected.</p>
+{{end}}{{if .HiddenBySAML}}<p class="note"><strong>Note:</strong> GitHub withheld {{.HiddenBySAML}} item(s) from organizations that enforce SAML single sign-on, because the token that ran this analysis is not authorized for them. Results may be incomplete.</p>
 {{end}}
 <h2>Metrics</h2>
 <div class="table-scroll">

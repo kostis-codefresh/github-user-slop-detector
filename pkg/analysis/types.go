@@ -38,6 +38,11 @@ type Contributor struct {
 	// while assembling this struct.
 	RateLimit RateLimit
 
+	// HiddenBySAML counts the resources GitHub withheld because they belong to
+	// an organization that enforces SAML single sign-on and the token was not
+	// authorized for it. Non-zero means the activity above is incomplete.
+	HiddenBySAML int
+
 	Since time.Time //start of the analysis window
 	Until time.Time //when the report was generated
 }

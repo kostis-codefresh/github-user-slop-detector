@@ -419,6 +419,19 @@ func TestFetchErrors(t *testing.T) {
 			body:        `{"errors":[{"message":"Something went wrong"}]}`,
 			expectedErr: "Something went wrong",
 		},
+		{
+			name:   "GraphQL error alongside a SAML-hidden resource",
+			status: http.StatusOK,
+			body: `{"data":{"user":{"login":"ghost"}},"errors":[` + samlError +
+				`,{"message":"Something went wrong"}]}`,
+			expectedErr: "Something went wrong",
+		},
+		{
+			name:        "SAML error without any data",
+			status:      http.StatusOK,
+			body:        `{"errors":[` + samlError + `]}`,
+			expectedErr: "SAML enforcement",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -441,6 +454,42 @@ func TestFetchErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+// samlError is what GitHub sends for a resource in an organization that
+// enforces SAML single sign-on, when the token has not been authorized for it.
+const samlError = `{"type":"FORBIDDEN","path":["user","pullRequests","nodes",0],` +
+	`"message":"Resource protected by organization SAML enforcement. You must grant your OAuth token access to this organization."}`
+
+func TestFetchToleratesSAMLHiddenResources(t *testing.T) {
+	since := time.Date(2025, 3, 23, 0, 0, 0, 0, time.UTC)
+	// Every section gets the same body, so each of the four requests reports
+	// one hidden resource and nulls out one PR and one comment.
+	client, _ := stubAPI(t, `{"data":{"user":{"login":"octocat","createdAt":"2020-01-01T00:00:00Z",
+		"followers":{"totalCount":1},"repositories":{"totalCount":1},
+		"contributionsCollection":{"contributionCalendar":{"weeks":[]},"pullRequestReviewContributions":{"totalCount":0}},
+		"pullRequests":{"totalCount":2,"nodes":[null,{"state":"MERGED","merged":true,"createdAt":"2025-06-01T00:00:00Z"}],
+			"pageInfo":{"hasNextPage":false}},
+		"issueComments":{"totalCount":2,"nodes":[{"createdAt":"2025-06-01T00:00:00Z","reactions":{"nodes":[]}},null],
+			"pageInfo":{"hasNextPage":false}}},
+		"issueSearch":{"issueCount":1,"nodes":[null]},
+		"rateLimit":{"remaining":4900,"resetAt":"2026-01-01T00:00:00Z","used":100}},
+		"errors":[`+samlError+`]}`)
+
+	c, err := client.Fetch(context.Background(), "octocat", since)
+
+	require.NoError(t, err, "a SAML-hidden resource should not fail the whole fetch")
+	assert.Len(t, c.PullRequests, 1, "the hidden PR should be skipped, the visible one kept")
+	assert.Len(t, c.IssueComments, 1, "the hidden comment should be skipped, not kept as a zero-dated one")
+	assert.Empty(t, c.Issues, "a hidden search result should be skipped")
+	assert.Equal(t, 4, c.HiddenBySAML, "each request's SAML error should be counted")
+}
+
+func TestReachedBeforeSkipsHiddenNodes(t *testing.T) {
+	since := time.Date(2025, 3, 23, 0, 0, 0, 0, time.UTC)
+	nodes := []*prNode{{CreatedAt: since.AddDate(0, 1, 0)}, nil}
+
+	assert.False(t, reachedBefore(nodes, since), "a trailing hidden PR has no date and must not stop the pagination")
 }
 
 func TestFallbackWindows(t *testing.T) {

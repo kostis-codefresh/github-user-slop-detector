@@ -97,6 +97,7 @@ type Report struct {
 	IsNewAccount    bool
 	NewAccountDays  int
 	HasLimitedData  bool
+	HiddenBySAML    int //resources GitHub withheld because of an organization's SAML enforcement
 	Evaluations     []Evaluation
 	Details         []DetailSection
 	Recommendations []string
@@ -115,6 +116,7 @@ func Evaluate(c *analysis.Contributor, cfg Config, prog *progress.Stepper) Repor
 		NewAccountDays: cfg.NewAccountDays,
 		WindowStart:    c.Since,
 		WindowEnd:      c.Until,
+		HiddenBySAML:   c.HiddenBySAML,
 		Passed:         true,
 	}
 

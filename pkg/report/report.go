@@ -73,6 +73,7 @@ type view struct {
 	NewAccountNote  bool
 	NewAccountDays  int
 	LimitedDataNote bool
+	HiddenBySAML    int
 	Rows            []row
 	Details         []detail
 	Recommendations []string
@@ -98,6 +99,7 @@ func Write(w io.Writer, r metrics.Report, mode DetailMode, homeURL string) error
 		// The new-account note already explains thin data, so only show the
 		// generic warning when that one is not being shown.
 		LimitedDataNote: r.HasLimitedData && !r.IsNewAccount,
+		HiddenBySAML:    r.HiddenBySAML,
 		Recommendations: r.Recommendations,
 		WindowStart:     r.WindowStart.Format("2006-01-02"),
 		WindowEnd:       r.WindowEnd.Format("2006-01-02"),
