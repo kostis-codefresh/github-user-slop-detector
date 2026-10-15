@@ -59,7 +59,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,format=short,prefix=
+            type=sha,format=short,prefix=,priority=300
             type=ref,event=tag
             type=raw,value=latest,enable={{is_default_branch}}
 
