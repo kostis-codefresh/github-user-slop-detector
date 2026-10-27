@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"runtime"
 	"strings"
 	"testing"
@@ -444,13 +445,40 @@ func TestHealth(t *testing.T) {
 }
 
 func TestDebug(t *testing.T) {
-	rec := get(t, newHandler(newStub().analyze, testAuthConfig), "/debug", false)
+	const storageVar = "WEBSITES_ENABLE_APP_SERVICE_STORAGE"
+	testCases := []struct {
+		name        string
+		storage     string
+		storageSet  bool
+		expectedRow string
+	}{
+		{name: "Happy Path scenario", storage: "true", storageSet: true, expectedRow: "\n" + storageVar + ": true\n"},
+		{name: "Storage setting false", storage: "false", storageSet: true, expectedRow: "\n" + storageVar + ": false\n"},
+		{name: "Storage setting absent"},
+	}
 
-	require.Equal(t, http.StatusOK, rec.Code, "the debug page should be served")
-	assert.Equal(t, "text/plain; charset=utf-8", rec.Header().Get("Content-Type"), "content type mismatch")
-	body := rec.Body.String()
-	assert.Contains(t, body, "Go version: "+runtime.Version()+"\n", "body should carry the Go version line")
-	assert.Contains(t, body, "\nGoroutines: ", "body should carry the goroutine count line")
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// t.Setenv first so the variable is restored afterwards, even when unset.
+			t.Setenv(storageVar, tc.storage)
+			if !tc.storageSet {
+				require.NoError(t, os.Unsetenv(storageVar), "unsetting the storage variable should succeed")
+			}
+
+			rec := get(t, newHandler(newStub().analyze, testAuthConfig), "/debug", false)
+
+			require.Equal(t, http.StatusOK, rec.Code, "the debug page should be served")
+			assert.Equal(t, "text/plain; charset=utf-8", rec.Header().Get("Content-Type"), "content type mismatch")
+			body := rec.Body.String()
+			assert.Contains(t, body, "Go version: "+runtime.Version()+"\n", "body should carry the Go version line")
+			assert.Contains(t, body, "\nGoroutines: ", "body should carry the goroutine count line")
+			if tc.storageSet {
+				assert.Contains(t, body, tc.expectedRow, "body should carry the storage setting line")
+			} else {
+				assert.NotContains(t, body, storageVar, "body should omit the storage setting when it is unset")
+			}
+		})
+	}
 }
 
 func TestFormatBytes(t *testing.T) {

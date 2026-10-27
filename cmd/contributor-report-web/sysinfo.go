@@ -15,12 +15,14 @@ type sysInfoRow struct {
 	Value string
 }
 
-// sysInfo reports metrics the Go runtime exposes about this process.
+// sysInfo reports metrics the Go runtime exposes about this process, plus
+// WEBSITES_ENABLE_APP_SERVICE_STORAGE when set, since on Azure App Service it
+// decides whether /home survives a restart.
 func sysInfo() []sysInfoRow {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	return []sysInfoRow{
+	rows := []sysInfoRow{
 		{"Go version", runtime.Version()},
 		{"OS / Arch", runtime.GOOS + "/" + runtime.GOARCH},
 		{"PID", strconv.Itoa(os.Getpid())},
@@ -30,6 +32,10 @@ func sysInfo() []sysInfoRow {
 		{"Heap in use", formatBytes(m.HeapAlloc)},
 		{"Memory from OS", formatBytes(m.Sys)},
 	}
+	if v, ok := os.LookupEnv("WEBSITES_ENABLE_APP_SERVICE_STORAGE"); ok {
+		rows = append(rows, sysInfoRow{"WEBSITES_ENABLE_APP_SERVICE_STORAGE", v})
+	}
+	return rows
 }
 
 func formatBytes(b uint64) string {
