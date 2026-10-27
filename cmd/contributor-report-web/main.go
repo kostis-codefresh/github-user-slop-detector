@@ -61,6 +61,8 @@ type healthStatus struct {
 	GitHubClientSecretSet bool     `json:"github_client_secret_set"`
 	Missing               []string `json:"missing"`
 	AppBaseURL            string   `json:"app_base_url"`
+	// On Azure App Service this decides whether /home survives a restart.
+	WebsitesEnableAppServiceStorage string `json:"websites_enable_app_service_storage,omitempty"`
 }
 
 // newHandler serves the app. Visitors who are not logged in are read-only:
@@ -138,11 +140,12 @@ func newHandler(analyze analyzeFunc, cfg authConfig) http.Handler {
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(healthStatus{
-			Status:                "ok",
-			GitHubClientIDSet:     cfg.ClientID != "",
-			GitHubClientSecretSet: cfg.ClientSecret != "",
-			Missing:               cfg.missing(),
-			AppBaseURL:            cfg.BaseURL,
+			Status:                          "ok",
+			GitHubClientIDSet:               cfg.ClientID != "",
+			GitHubClientSecretSet:           cfg.ClientSecret != "",
+			Missing:                         cfg.missing(),
+			AppBaseURL:                      cfg.BaseURL,
+			WebsitesEnableAppServiceStorage: os.Getenv("WEBSITES_ENABLE_APP_SERVICE_STORAGE"),
 		})
 	})
 	mux.HandleFunc("GET /debug", func(w http.ResponseWriter, _ *http.Request) {
