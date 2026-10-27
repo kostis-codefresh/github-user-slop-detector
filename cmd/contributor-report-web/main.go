@@ -68,9 +68,9 @@ type healthStatus struct {
 // newHandler serves the app. Visitors who are not logged in are read-only:
 // cached reports are still served, but nothing new can be analyzed. Without
 // the OAuth settings in cfg nobody can log in, so the whole app is read-only.
-func newHandler(analyze analyzeFunc, cfg authConfig) http.Handler {
+func newHandler(analyze analyzeFunc, cfg authConfig, cacheFile string) http.Handler {
 	tmpl := template.Must(template.ParseFS(ui.Embedded, "*.html"))
-	cache := newReportCache()
+	cache := newReportCache(cacheFile)
 
 	execute := func(w http.ResponseWriter, name string, data pageData) {
 		if err := tmpl.ExecuteTemplate(w, name, data); err != nil {
@@ -234,9 +234,15 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+	// /home is what survives a restart on Azure App Service.
+	cacheFile := os.Getenv("CACHE_FILE")
+	if cacheFile == "" {
+		cacheFile = "/home/contributor-reports.json"
+	}
+	log.Printf("report cache file: %s", cacheFile)
 	srv := &http.Server{
 		Addr:              ":" + port,
-		Handler:           newHandler(analyzeWithGitHub, cfg),
+		Handler:           newHandler(analyzeWithGitHub, cfg, cacheFile),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	log.Printf("listening on %s", srv.Addr)

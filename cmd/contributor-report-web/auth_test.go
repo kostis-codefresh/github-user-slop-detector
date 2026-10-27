@@ -90,7 +90,7 @@ func login(t *testing.T, h http.Handler) *httptest.ResponseRecorder {
 }
 
 func TestLoginPage(t *testing.T) {
-	rec := get(t, newHandler(newStub().analyze, testAuthConfig), "/login", false)
+	rec := get(t, newHandler(newStub().analyze, testAuthConfig, ""), "/login", false)
 
 	assert.Equal(t, http.StatusOK, rec.Code, "the login page should render")
 	for _, want := range []string{
@@ -101,7 +101,7 @@ func TestLoginPage(t *testing.T) {
 }
 
 func TestOctopusLogo(t *testing.T) {
-	rec := get(t, newHandler(newStub().analyze, testAuthConfig), "/img/octopus-deploy-logo.png", false)
+	rec := get(t, newHandler(newStub().analyze, testAuthConfig, ""), "/img/octopus-deploy-logo.png", false)
 
 	assert.Equal(t, http.StatusOK, rec.Code, "the logo should be served")
 	assert.Equal(t, "image/png", rec.Header().Get("Content-Type"), "content type mismatch")
@@ -109,7 +109,7 @@ func TestOctopusLogo(t *testing.T) {
 }
 
 func TestLoginRedirectsToGitHub(t *testing.T) {
-	rec := get(t, newHandler(newStub().analyze, testAuthConfig), "/login/github", false)
+	rec := get(t, newHandler(newStub().analyze, testAuthConfig, ""), "/login/github", false)
 
 	require.Equal(t, http.StatusTemporaryRedirect, rec.Code, "login should redirect")
 	location, err := url.Parse(rec.Header().Get("Location"))
@@ -166,7 +166,7 @@ func TestCallback(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			gh := newGitHubStub(t, "jane", tc.emails...)
-			h := newHandler(newStub().analyze, gh.config())
+			h := newHandler(newStub().analyze, gh.config(), "")
 
 			rec := login(t, h)
 
@@ -195,7 +195,7 @@ func TestCallbackRejectsABadState(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			gh := newGitHubStub(t, "jane", githubEmail{Email: "jane@octopus.com", Primary: true, Verified: true})
-			h := newHandler(newStub().analyze, gh.config())
+			h := newHandler(newStub().analyze, gh.config(), "")
 			start := get(t, h, "/login/github", false)
 
 			req := httptest.NewRequest(http.MethodGet, "/callback?code=the-code&state="+tc.state, nil)
@@ -211,7 +211,7 @@ func TestCallbackRejectsABadState(t *testing.T) {
 
 func TestLogout(t *testing.T) {
 	gh := newGitHubStub(t, "jane", githubEmail{Email: "jane@octopus.com", Primary: true, Verified: true})
-	h := newHandler(newStub().analyze, gh.config())
+	h := newHandler(newStub().analyze, gh.config(), "")
 	session := login(t, h).Result().Cookies()[0]
 
 	req := httptest.NewRequest(http.MethodPost, "/logout", nil)
@@ -230,7 +230,7 @@ func TestLogout(t *testing.T) {
 
 func TestLogoutIsNotAGet(t *testing.T) {
 	gh := newGitHubStub(t, "jane")
-	h := newHandler(newStub().analyze, gh.config())
+	h := newHandler(newStub().analyze, gh.config(), "")
 
 	rec := get(t, withCookie(h, sessionCookie(t, gh.config(), "jane", "oauth-token")), "/logout", false)
 

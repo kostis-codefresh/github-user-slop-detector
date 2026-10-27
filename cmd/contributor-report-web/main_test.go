@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -87,7 +88,7 @@ func withCookie(h http.Handler, cookie *http.Cookie) http.Handler {
 // loggedInHandler is the app as seen by test-user, logged in with test-token.
 func loggedInHandler(t *testing.T, stub *stubAnalyzer) http.Handler {
 	t.Helper()
-	return withCookie(newHandler(stub.analyze, testAuthConfig), sessionCookie(t, testAuthConfig, "test-user", "test-token"))
+	return withCookie(newHandler(stub.analyze, testAuthConfig, ""), sessionCookie(t, testAuthConfig, "test-user", "test-token"))
 }
 
 func get(t *testing.T, h http.Handler, path string, htmx bool) *httptest.ResponseRecorder {
@@ -331,7 +332,7 @@ func TestReadOnlyMode(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			stub := newStub()
-			rec := get(t, newHandler(stub.analyze, testAuthConfig), tc.path, tc.htmx)
+			rec := get(t, newHandler(stub.analyze, testAuthConfig, ""), tc.path, tc.htmx)
 
 			assert.Equal(t, tc.expectedCode, rec.Code, "unexpected status for %s", tc.path)
 			for _, want := range tc.expected {
@@ -355,7 +356,7 @@ func TestOAuthNotConfigured(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			h := newHandler(newStub().analyze, tc.cfg)
+			h := newHandler(newStub().analyze, tc.cfg, "")
 
 			body := get(t, h, "/", false).Body.String()
 			assert.Contains(t, body, `<div class="banner error">GitHub oauth client settings missing.</div>`, "the red banner should show")
@@ -370,7 +371,7 @@ func TestOAuthNotConfigured(t *testing.T) {
 func TestOAuthNotConfiguredIgnoresASessionCookie(t *testing.T) {
 	stub := newStub()
 	cfg := authConfig{SessionKey: testAuthConfig.SessionKey}
-	h := withCookie(newHandler(stub.analyze, cfg), sessionCookie(t, cfg, "test-user", "test-token"))
+	h := withCookie(newHandler(stub.analyze, cfg, ""), sessionCookie(t, cfg, "test-user", "test-token"))
 
 	rec := get(t, h, "/report/octocat", false)
 
@@ -402,8 +403,68 @@ func TestCacheEvictsTheOldestReport(t *testing.T) {
 	assert.Equal(t, 2, stub.calls["user-0"], "an evicted report is fetched again")
 }
 
+// fileBackedHandler is loggedInHandler with its cache stored in path.
+func fileBackedHandler(t *testing.T, stub *stubAnalyzer, path string) http.Handler {
+	t.Helper()
+	return withCookie(newHandler(stub.analyze, testAuthConfig, path), sessionCookie(t, testAuthConfig, "test-user", "test-token"))
+}
+
+func TestCacheFileSurvivesARestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "reports.json")
+	stub := newStub()
+	get(t, fileBackedHandler(t, stub, path), "/report/octocat", false)
+
+	restarted := fileBackedHandler(t, stub, path)
+	home := get(t, restarted, "/", false).Body.String()
+	rec := get(t, restarted, "/report/OctoCat", false)
+
+	assert.Contains(t, home, `href="/report/octocat"`, "the stored report should be listed after a restart")
+	assert.Equal(t, http.StatusOK, rec.Code, "the stored report should be served after a restart")
+	assert.Equal(t, 1, stub.calls["octocat"], "the stored report should not be fetched again")
+}
+
+func TestCacheFileKeepsEvictedReports(t *testing.T) {
+	stub := newStub()
+	h := fileBackedHandler(t, stub, filepath.Join(t.TempDir(), "reports.json"))
+
+	for i := range maxReports + 1 {
+		get(t, h, fmt.Sprintf("/report/user-%d", i), false)
+	}
+	rec := get(t, h, "/report/user-0", false)
+
+	assert.Equal(t, http.StatusOK, rec.Code, "the evicted report should be served")
+	assert.Equal(t, 1, stub.calls["user-0"], "an evicted report should be read back from the file, not fetched again")
+}
+
+func TestCacheFileSeedsOnlyTheNewestReports(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "reports.json")
+	stub := newStub()
+	h := fileBackedHandler(t, stub, path)
+	for i := range maxReports + 1 {
+		get(t, h, fmt.Sprintf("/report/user-%d", i), false)
+	}
+
+	home := get(t, fileBackedHandler(t, stub, path), "/", false).Body.String()
+
+	assert.NotContains(t, home, `href="/report/user-0"`, "the oldest stored report should not be listed")
+	assert.Contains(t, home, fmt.Sprintf(`href="/report/user-%d"`, maxReports), "the newest stored report should be listed")
+}
+
+func TestCacheFileUnwritableFallsBackToMemory(t *testing.T) {
+	blocker := filepath.Join(t.TempDir(), "not-a-dir")
+	require.NoError(t, os.WriteFile(blocker, nil, 0o644), "creating the blocking file")
+	stub := newStub()
+	h := fileBackedHandler(t, stub, filepath.Join(blocker, "reports.json"))
+
+	first := get(t, h, "/report/octocat", false)
+	get(t, h, "/report/octocat", false)
+
+	assert.Equal(t, http.StatusOK, first.Code, "the report should be served even though the file cannot be written")
+	assert.Equal(t, 1, stub.calls["octocat"], "the report should still be cached in memory")
+}
+
 func TestLogo(t *testing.T) {
-	rec := get(t, newHandler(newStub().analyze, testAuthConfig), "/img/logo.svg", false)
+	rec := get(t, newHandler(newStub().analyze, testAuthConfig, ""), "/img/logo.svg", false)
 
 	assert.Equal(t, http.StatusOK, rec.Code, "the logo should be served")
 	assert.Equal(t, "image/svg+xml", rec.Header().Get("Content-Type"), "content type mismatch")
@@ -436,7 +497,7 @@ func TestHealth(t *testing.T) {
 				require.NoError(t, os.Unsetenv(storageVar), "unsetting the storage variable should succeed")
 			}
 
-			rec := get(t, newHandler(newStub().analyze, tc.cfg), "/health", false)
+			rec := get(t, newHandler(newStub().analyze, tc.cfg, ""), "/health", false)
 
 			require.Equal(t, http.StatusOK, rec.Code, "the health check should succeed whatever is configured")
 			assert.Equal(t, "application/json", rec.Header().Get("Content-Type"), "content type mismatch")
@@ -456,7 +517,7 @@ func TestHealth(t *testing.T) {
 }
 
 func TestDebug(t *testing.T) {
-	rec := get(t, newHandler(newStub().analyze, testAuthConfig), "/debug", false)
+	rec := get(t, newHandler(newStub().analyze, testAuthConfig, ""), "/debug", false)
 
 	require.Equal(t, http.StatusOK, rec.Code, "the debug page should be served")
 	assert.Equal(t, "text/plain; charset=utf-8", rec.Header().Get("Content-Type"), "content type mismatch")
